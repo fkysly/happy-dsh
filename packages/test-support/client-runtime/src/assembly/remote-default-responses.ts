@@ -26,6 +26,11 @@ export const remoteDefaultResponses: RemoteTable = {
     }),
     // ui-agent-preset hero chip and header label on first mount.
     'agentPresets/list': ok({ presets: [], modeSelectionEnabled: true }),
+    // ui-settings-models `ModelsSettingsStore.load()` from the first-run
+    // credential step, which mounts here because it is the only onboarding
+    // takeover left in this build; it loads the directory it renders.
+    'llm/listProviders': ok([]),
+    'llm/listConfigurableProviders': ok([]),
     // cordis-client-runner `ClientCordisInspectRegistry.sync` at apply and on `connection/reset`.
     'dynamicCordisRunner/syncInspectManifest': ok(null),
     // ui-cordis inventory at apply and on `connection/reset`.
