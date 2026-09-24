@@ -189,6 +189,64 @@ Requirements and gotchas:
 
 ---
 
+## Recipe C2 — Tailscale through a mihomo/Clash outbound
+
+Some setups do not run the Tailscale client at all: mihomo (Clash.Meta, e.g.
+behind Clash Verge) has a `tailscale` outbound type, and the machine joins the
+tailnet through the proxy. Everything else stays the same — Caddy still
+terminates TLS, DSH still binds loopback — but two mihomo settings that are
+invisible for ordinary proxying have to be handled, and both fail in ways that
+look like happy-dsh being broken.
+
+Take this as a checklist, not a recipe: verify each step against your own
+config.
+
+**1. A domain rule, because the sniffer re-routes by name.**
+With `sniffer.enable: true` and `override-destination: true`, a TLS ClientHello
+on 443 has its SNI read and the rules are matched **again by domain**. An
+`IP-CIDR` rule that routed the connection correctly on the way in is no longer
+consulted. So a private name with no domain rule falls through to the catch-all
+and gets sent to whatever proxy node is last — while SSH on 22, having no
+cleartext to sniff, keeps working. That asymmetry (ssh fine, https dead) is the
+signature of this.
+
+```yaml
+rules:            # or your rules profile's `prepend:`
+  - DOMAIN-SUFFIX,dsh.dev,回家     # your tailscale outbound's group
+```
+
+**2. A hosts entry, because fake-ip is not an address.**
+The tailscale outbound has to connect to a real IP. Under `enhanced-mode:
+fake-ip`, mihomo's own DNS answers this name with `198.18.x.x`, which the
+outbound cannot dial — so routing by domain still fails, just later. Because the
+browser reaches the proxy as `CONNECT dsh.dev:443` (a **hostname**, not an IP),
+this resolution has to happen on the mihomo side; a hosts file on the client
+cannot help.
+
+```yaml
+hosts:
+  dsh.dev: 100.103.128.42     # the tailnet IP, not the LAN IP: no subnet
+                              # route advertisement required
+dns:
+  use-hosts: true             # do not rely on the default
+```
+
+**3. Make sure the outbound is not expected to fall back.** A tailscale
+outbound that is handed a destination outside the tailnet fails outright rather
+than going direct, so the two rules above have to be the ones that match.
+
+Verify at the end from the client, with nothing but the system proxy:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' https://dsh.dev/    # expect 401
+curl -s -o /dev/null -w '%{http_code}\n' http://dsh.dev/     # expect 308 -> https
+```
+
+A 401 is success here: the fence accepted the authority and no session cookie
+was presented. `000` means the connection never arrived.
+
+---
+
 ## Threat model
 
 **What DSH's authentication is.** On `GET /`, the server exchanges the
