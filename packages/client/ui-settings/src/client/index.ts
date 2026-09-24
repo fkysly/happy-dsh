@@ -35,8 +35,11 @@ export const inject = ['remote', 'remote.settings']
  */
 export function apply(ctx: Context): void {
   const schema = new SettingsSchemaService(ctx)
-  // Every form uses the persistence mode resolved from the connected Host.
-  const persistence = ctx.remote.$host.isLoopback ? 'host' : 'memory'
+  // Every form uses the persistence mode resolved from the connected Host: a
+  // page persists settings only where the Host granted it, and a loopback page
+  // always is. Without the grant the mirror never describes, so every form
+  // degrades.
+  const persistence = ctx.remote.$host.remoteWrites ? 'host' : 'memory'
   const mirror = new SettingsDescribeMirror(ctx, persistence)
   ctx.effect(() => {
     const disposers = [

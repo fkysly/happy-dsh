@@ -110,6 +110,7 @@ export interface ClientTransportHooks {
 interface ClientTransportGlobal {
   __DSH_TRANSPORT__?: ClientTransportHooks
   __DSH_CONNECTION_RECOVERY__?: unknown
+  __DSH_CONNECTION_REMOTE_WRITES__?: unknown
 }
 
 /** Browser location fields used to classify loopback authority. */
@@ -123,6 +124,8 @@ export interface ConnectionInstallOptions {
   readonly transport?: ClientTransportHooks
   /** Reconnect timing overrides; omitted fields use controller defaults. */
   readonly recovery?: ConnectionRecoveryConfig
+  /** Whether the Host declared that this page may persist settings on it. */
+  readonly remoteWrites?: boolean
   /** Page location; omit for a non-browser composition. */
   readonly location?: ConnectionLocation
 }
@@ -138,6 +141,15 @@ export interface ConnectionHandle {
    * ({@link ClientTransportHooks.ownsHost}), or the context is not a browser.
    */
   readonly isLoopback: boolean
+  /**
+   * Whether this page may persist settings on the Host. True for a loopback
+   * page and for a served page whose Host declared
+   * `__DSH_CONNECTION_REMOTE_WRITES__`; false otherwise, which keeps every
+   * settings write process-local. Deliberately not folded into
+   * {@link isLoopback}: that one answers "is the privileged desktop surface
+   * reachable", and other product policies read it for that question.
+   */
+  readonly remoteWrites: boolean
   /** Current Remote event generation and the Host facts carried by its opening frame. */
   readonly generation: ConnectionGenerationState
   /** Current recovery lifecycle for connection-specific consumers. */
@@ -206,6 +218,9 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
   const pageLocation = options.location
   const transport = options.transport
   const recovery = options.recovery ?? {}
+  // Resolved once: both fields are fixed for the page lifetime.
+  const isLoopback = transport?.ownsHost === true || pageLocation === undefined
+    || isLoopbackHostname(pageLocation.hostname)
   const rpc = transport?.rpc ?? createWebConnectionRpc(transport?.fetch, transport?.openStream)
   let generationSource: ConnectionGenerationSource | undefined
   let owner: ConnectionOwner | undefined
@@ -245,7 +260,8 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
     publishState(undefined)
   }
   const handle: ConnectionHandle = {
-    isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
+    isLoopback,
+    remoteWrites: isLoopback || options.remoteWrites === true,
     generation: {
       getSnapshot: () => generation,
       subscribe: (listener) => {
@@ -321,6 +337,7 @@ export function apply(ctx: Context): void {
   installConnection(ctx, {
     ...(transport === undefined ? {} : { transport }),
     recovery: resolveConnectionConfig(globals.__DSH_CONNECTION_RECOVERY__),
+    remoteWrites: globals.__DSH_CONNECTION_REMOTE_WRITES__ === true,
     ...(pageLocation === undefined ? {} : { location: pageLocation }),
   })
 }

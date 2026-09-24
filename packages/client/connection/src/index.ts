@@ -105,11 +105,23 @@ export interface ConnectionConfig {
   cookieMaxAgeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
+  /**
+   * Whether a non-loopback page may persist settings on this Host. The resolved
+   * answer reaches the page as `__DSH_CONNECTION_REMOTE_WRITES__`; without it a
+   * served page keeps every settings write process-local.
+   *
+   * Default: derived -- true when `trustedHosts` names at least one authority,
+   * because such a client is already admitted to an agent that runs commands on
+   * this Host, so persisting a setting grants it nothing further. Set false to
+   * keep those clients memory-only.
+   */
+  remoteWrites?: boolean
 }
 
 export const Config: z<ConnectionConfig> = z.object({
   recovery: ConnectionRecoveryConfigSchema.default({}),
   trustedHosts: z.array(String).default([]),
+  remoteWrites: z.boolean(),
   cookieMaxAgeDays: z.natural().min(1).default(30),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
@@ -127,6 +139,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   const trustedHosts = config?.trustedHosts ?? []
   const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
+  const remoteWrites = config?.remoteWrites ?? trustedHosts.length > 0
   // Config boundary: a malformed entry fails the load loudly here rather than
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
@@ -140,6 +153,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
     webCtx.on('webserver/index-inject', (table) => {
       table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
+      table.push({ kind: 'global', name: '__DSH_CONNECTION_REMOTE_WRITES__', value: remoteWrites })
     })
     const fetchHandler = connection.createSharedFetchHandler(API_PATH)
     const route: WebRoute = {
