@@ -311,13 +311,14 @@ async function bootPreview(origin: string, browser: Browser): Promise<void> {
     // report the older one.
     expect(bootLine).toContain(`image lowering=${WRAPPER_CONTRACT}`)
     expect(bootLine).toContain('data overlays=1')
-    // The versioned notice is the seeded preview's first stable interactive
-    // surface after the startup chain completes over the tunnel.
-    const continueButton = page.getByRole('button', { name: 'Continue' })
-    await continueButton.waitFor({ timeout: HERO_TIMEOUT_MS })
-    await continueButton.click()
+    // happy-dsh does not mount the upstream internal-testing notice, so the
+    // credential step is the first-run takeover and therefore the first stable
+    // interactive surface: dismiss it and the seeded preview is reachable. The
+    // notice's own Continue button matched by substring here, so leaving this
+    // step in place silently aimed at the credential step's disabled
+    // "Save and continue" instead.
     const configureLater = page.getByRole('button', { name: 'Configure later' })
-    await configureLater.waitFor({ timeout: 30_000 })
+    await configureLater.waitFor({ timeout: HERO_TIMEOUT_MS })
     await configureLater.click()
     await page.locator('[data-composer-input][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]')
       .waitFor({ timeout: 30_000 })
