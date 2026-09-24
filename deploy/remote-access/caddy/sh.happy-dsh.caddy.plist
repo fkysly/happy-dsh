@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  happy-dsh — Caddy as a ROOT LaunchDaemon, so it can bind :443.
+
+  ── Why root, and why not `brew services` ───────────────────────────────────
+  macOS requires root to bind ports below 1024 and offers no per-binary
+  capability equivalent to Linux's setcap. The Homebrew caddy formula refuses
+  to run as root ("caddy must be run as non-root to start at user login"), so
+  `sudo brew services start caddy` silently yields a *user* agent that cannot
+  bind 443 — it starts, and then nothing listens.
+
+  A TLS terminator running as root is ordinary for a web server. What matters
+  is that it reads a config the unprivileged user cannot rewrite: the deployed
+  config lives at /opt/homebrew/etc/Caddyfile, owned root:wheel 0644, and is
+  copied there from the repo rather than read in place.
+
+  ── Install ─────────────────────────────────────────────────────────────────
+      sudo cp sh.happy-dsh.caddy.plist /Library/LaunchDaemons/
+      sudo chown root:wheel /Library/LaunchDaemons/sh.happy-dsh.caddy.plist
+      sudo chmod 644 /Library/LaunchDaemons/sh.happy-dsh.caddy.plist
+      sudo launchctl bootstrap system /Library/LaunchDaemons/sh.happy-dsh.caddy.plist
+
+  ── Inspect / control ───────────────────────────────────────────────────────
+      sudo launchctl print system/sh.happy-dsh.caddy
+      sudo launchctl kickstart -k system/sh.happy-dsh.caddy     # reload config
+      sudo launchctl bootout system/sh.happy-dsh.caddy          # stop
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>sh.happy-dsh.caddy</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/caddy</string>
+    <string>run</string>
+    <string>--config</string>
+    <string>/opt/homebrew/etc/Caddyfile</string>
+    <!-- Keep Caddy's own state (certificates, the CA root) in one place that
+         survives upgrades of the binary. -->
+    <string>--adapter</string>
+    <string>caddyfile</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- XDG_DATA_HOME/XDG_CONFIG_HOME decide where Caddy keeps its PKI, so the
+         CA root you install on clients has a stable path. Moving these later
+         issues a NEW CA and invalidates every trusted copy. -->
+    <key>XDG_DATA_HOME</key>
+    <string>/opt/homebrew/var/lib/caddy</string>
+    <key>XDG_CONFIG_HOME</key>
+    <string>/opt/homebrew/etc/caddy</string>
+    <key>HOME</key>
+    <string>/var/root</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>WorkingDirectory</key>
+  <string>/opt/homebrew/var/lib/caddy</string>
+
+  <key>StandardOutPath</key>
+  <string>/opt/homebrew/var/log/caddy/caddy.log</string>
+  <key>StandardErrorPath</key>
+  <string>/opt/homebrew/var/log/caddy/caddy-error.log</string>
+
+  <!-- Root is required for :443; nothing here needs a terminal. -->
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>StandardInPath</key>
+  <string>/dev/null</string>
+</dict>
+</plist>

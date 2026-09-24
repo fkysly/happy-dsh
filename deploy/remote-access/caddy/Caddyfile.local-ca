@@ -1,0 +1,79 @@
+# happy-dsh — Caddy terminating TLS for a private deployment, with a
+# certificate from Caddy's OWN CA. No domain, no public DNS, no ACME.
+#
+# ── Why this exists ─────────────────────────────────────────────────────────
+# DSH's browser-session cookie is issued WITHOUT the `Secure` attribute: the
+# shipped transport assumes loopback HTTP. Over TLS that does not matter — the
+# cookie is encrypted in transit — but over plaintext it is readable by anyone
+# on the path. TLS is what makes the cookie safe; see ../README.md "Threat
+# model".
+#
+# ── The tradeoff you are accepting ──────────────────────────────────────────
+# A certificate from a private CA is trusted only where you install the root.
+# That is one `caddy trust` on this machine, and on iOS a configuration-profile
+# install plus flipping full trust on under
+#   Settings → General → About → Certificate Trust Settings
+#
+# The alternative — a publicly trusted certificate via DNS-01 — needs no
+# installs anywhere, but it needs a domain you control. If you have one, use
+# `Caddyfile.dns01-cloudflare` instead of this file.
+#
+# An internal CA is also why the name can be anything. `dsh.dev` is not a
+# registered domain here and does not need to be: it only has to resolve on the
+# networks you use, which is a local DNS entry or /etc/hosts.
+
+{
+	# Local CA settings. `tls internal` below issues from this authority.
+	local_certs
+
+	# Caddy's admin API stays on the default localhost:2019 so `caddy reload`
+	# works. Do not expose it.
+}
+
+dsh.dev {
+	tls internal
+
+	reverse_proxy 127.0.0.1:3080 {
+		# Caddy preserves the browser's Host by default, and that is
+		# load-bearing rather than incidental: DSH's /api Host fence and the
+		# browser-session cookie's authority binding both read it. A proxy that
+		# rewrites Host to the upstream makes every request fail with 403.
+		# Stated explicitly so nobody "tidies" it away.
+		header_up Host {host}
+
+		# Agent turns stream and the UI holds a WebSocket open for the remote
+		# API (/api/remote.mux). Disable response buffering, or output arrives
+		# in bursts and the GUI looks stuck.
+		flush_interval -1
+	}
+
+	# No timeouts block here on purpose: Caddy sets no default read timeout for
+	# proxied responses, so a slow agent turn and an idle WebSocket both
+	# survive without tuning. (An earlier version of this file had a
+	# `timeouts { read_body 0 }` block; it is not a valid Caddy directive and
+	# failed validation.)
+
+	# ── No access log, deliberately ───────────────────────────────────────────
+	# Caddy logs the full request URI by default, and the token exchange is
+	#
+	#     GET /?token=<opaque>
+	#
+	# so an access log is a credential log. That token mints a session cookie
+	# for any trusted authority and is valid until the process exits — the same
+	# thing this whole directory exists to keep out of the journal.
+	#
+	# If you want access logs, add them with the query redacted and then
+	# VERIFY the token does not appear, do not assume it:
+	#
+	#     log {
+	#         output file /opt/homebrew/var/log/caddy/dsh-access.log
+	#         format filter {
+	#             wrap json
+	#             fields {
+	#                 request>uri query {
+	#                     delete token
+	#                 }
+	#             }
+	#         }
+	#     }
+}
