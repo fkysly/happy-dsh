@@ -34,12 +34,19 @@ dsh.dev {
 	tls internal
 
 	reverse_proxy 127.0.0.1:3080 {
-		# Caddy preserves the browser's Host by default, and that is
-		# load-bearing rather than incidental: DSH's /api Host fence and the
-		# browser-session cookie's authority binding both read it. A proxy that
-		# rewrites Host to the upstream makes every request fail with 403.
-		# Stated explicitly so nobody "tidies" it away.
-		header_up Host {host}
+		# ── Do NOT add `header_up Host {host}` here ──────────────────────────
+		# Caddy already forwards the browser's Host verbatim, which is exactly
+		# what DSH needs: both the /api Host fence and the browser-session
+		# cookie's authority binding read it, and a proxy that rewrites Host to
+		# the upstream makes every request fail with 403.
+		#
+		# Adding the line back looks like belt-and-braces and is a bug. Caddy's
+		# {host} placeholder is the HOSTNAME ONLY — it drops the port. So on a
+		# deployment reached at a non-default port, the browser mints a cookie
+		# bound to `dsh.dev:8443` while DSH is told the authority is `dsh.dev`,
+		# and every /api call is refused with 403 while the page itself loads
+		# fine. That cost a debugging round; it is recorded here so it does not
+		# come back.
 
 		# Agent turns stream and the UI holds a WebSocket open for the remote
 		# API (/api/remote.mux). Disable response buffering, or output arrives
