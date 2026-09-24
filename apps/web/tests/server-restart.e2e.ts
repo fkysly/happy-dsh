@@ -171,10 +171,9 @@ it.each([false, true])('keeps the same revision, Session and page across a serve
   })
   await page.goto(url, { waitUntil: 'load' })
   await page.locator('[data-slot="root"]').waitFor({ state: 'attached', timeout: 20_000 })
-  // happy-dsh does not mount the upstream internal-testing notice, so the
-  // credential step owns the first-run takeover here.
-  const configureLater = page.getByRole('button', { name: 'Configure later' })
-  await configureLater.click({ timeout: 20_000 })
+  // No onboarding takeover: this build ships no internal-testing notice, and
+  // this fixture's server answers on a configured model endpoint, so nothing
+  // opens ahead of the composer.
   const composer = page.locator('[data-composer-input][contenteditable="true"]')
   await writeComposerDraft(page, composer, 'Create a completed turn for the server restart test.')
   await composer.press('Enter')
