@@ -1,0 +1,156 @@
+# happy-dsh — hand-written reference systemd unit (user scope).
+#
+# This is the version to edit yourself. `install.sh` generates the same shape
+# with your real paths filled in; use that one unless you want to own the file.
+#
+# ── Install (user scope — no root needed) ───────────────────────────────────
+#     mkdir -p ~/.dsh && chmod 700 ~/.dsh
+#     : > ~/.dsh/serve.stdout && chmod 600 ~/.dsh/serve.stdout
+#     : > ~/.dsh/serve.stderr && chmod 600 ~/.dsh/serve.stderr
+#     cp happy-dsh-web.service ~/.config/systemd/user/
+#     systemctl --user daemon-reload
+#     systemctl --user enable --now happy-dsh-web
+#     systemctl --user status happy-dsh-web
+#
+# ── Boot without logging in ─────────────────────────────────────────────────
+#     sudo loginctl enable-linger $USER
+#
+# A user service starts when the user logs in, not at boot. Lingering is what
+# closes that gap, and it is the only reason to reach for sudo here.
+#
+# ── Do NOT run this as a system unit ────────────────────────────────────────
+# DSH reads credentials from $DSH_HOME, acts on files in your home directory,
+# and spawns shell commands as its user. A system unit at /etc/systemd/system/
+# would either run as root — an agent with root's file access is not a
+# security posture anyone should adopt — or need User= pointing back at you,
+# at which point the only thing you gained over this file is a boot-time start,
+# which enable-linger already gives you. Same reasoning as hermes-agent and
+# OpenClaw, which both default to user scope.
+#
+# ── What you must change ────────────────────────────────────────────────────
+#   1. Every /home/YOU below.
+#   2. /usr/local/bin/dsh → `command -v dsh`. From a checkout, use the node
+#      form:  ExecStart=/usr/bin/node /home/YOU/happy-dsh/apps/cli/lib/bin.js …
+#   3. dsh.example.com → the authority your browser will use.
+#   4. PATH — see the note on the Environment= line below.
+
+[Unit]
+Description=happy-dsh Web UI
+Documentation=https://github.com/fkysly/happy-dsh
+After=network-online.target
+Wants=network-online.target
+
+# Give up after 5 starts in 60 seconds instead of looping forever.
+#
+# This is the backstop for a contract DSH does not implement yet: there is no
+# way for it to say "my configuration is broken, stop restarting me". A
+# misconfigured deployment exits non-zero exactly like a crash does, so without
+# this the service would restart-loop and flood the log. hermes-agent solves
+# the same problem with an explicit exit code (78, EX_CONFIG, paired with
+# RestartPreventExitStatus); this is the version that needs no code change.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+
+# ── ORDER MATTERS — read this before reordering anything ────────────────────
+# `--patch` is a LAUNCHER flag (apps/cli/src/args.ts), not a `dsh web` flag.
+# The launcher parses its own flags first and stops at the first token it does
+# not recognise, handing everything after that to the app:
+#
+#     "The launcher's flags come first and end at the first token it does not
+#      know; everything from there on belongs to the booted app."
+#
+# So every launcher flag must precede the first app flag. Move `--no-open`
+# above `--patch` and the launcher has already stopped listening; the service
+# starts and dies instantly with `error: unknown option '--patch'`.
+#
+# `--trusted-host` stays LAST: it is variadic (`<authority...>`) and swallows
+# every following token that does not begin with a dash.
+ExecStart=/usr/local/bin/dsh web \
+          --patch /home/YOU/happy-dsh/deploy/remote-access/overlays/remote-browser.yml \
+          --no-open \
+          --port 3080 \
+          --trusted-host dsh.example.com
+
+WorkingDirectory=/home/YOU
+
+# PATH is load-bearing: agent turns spawn real shell commands, so a service
+# running with systemd's minimal default PATH will fail to find git, node, rg,
+# and anything else installed outside /usr/bin. Copy `echo $PATH` from your
+# login shell, and update this line after installing a tool somewhere new.
+#
+# This is the same tradeoff ollama's installer makes by baking `PATH=$PATH`
+# from the installing shell. The alternative — a curated list — goes stale
+# more quietly, which is worse.
+Environment="PATH=/home/YOU/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+Environment="DSH_HOME=/home/YOU/.dsh"
+
+# Service identity, so a process can tell that it is running inside the
+# supervised service. restart.sh reads these to decide whether an in-place
+# restart has to escape this unit's cgroup first.
+#
+# The marker alone is NOT proof of ancestry: a helper inherits it while running
+# outside the unit. restart.sh passes an explicit --detached flag instead of
+# re-deriving membership — re-deriving it would make the helper recurse.
+Environment="HAPPY_DSH_SERVICE=1"
+Environment="HAPPY_DSH_SYSTEMD_UNIT=happy-dsh-web"
+
+# always, not on-failure: ANY exit comes back.
+#
+# DSH exits 0 on SIGTERM, but a clean exit is also the simplest idiom for
+# "restart me" — a plugin that needs a restart can just let the process exit
+# and let systemd bring it back. Making every exit recoverable is what makes
+# that work, and it is why the common restart case needs no helper script.
+#
+# An explicit `systemctl --user stop` still stops: systemd special-cases it and
+# does not apply Restart= to it. So stopping means the service manager, not
+# killing the process. Mirrors launchd's KeepAlive=true in the plist.
+Restart=always
+RestartSec=5
+
+# DSH guarantees it exits within 5 seconds of SIGTERM:
+#   apps/cli/src/process-shutdown.ts
+#   export const PROCESS_SHUTDOWN_TIMEOUT_MS = 5_000
+# with a forced process.exit() after that, and a second signal escalating
+# immediately. 15s is that contract plus room for systemd's own bookkeeping.
+# KillMode=mixed sends SIGTERM to the main process and only resorts to SIGKILL
+# for the rest of the cgroup — the same choice hermes-agent and OpenClaw make.
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# ── The point of this file ──────────────────────────────────────────────────
+# stdout/stderr go to a 0600 file, NOT to the journal.
+#
+# On boot DSH prints its URL with a launch token:
+#
+#     dsh web: http://…?token=<opaque>
+#
+# That token mints a session cookie for ANY trusted authority. It is not
+# single-use and it does not expire — it stays valid until the process exits.
+# Treat the line as a password.
+#
+# The systemd default would put it in the journal, readable by every member of
+# systemd-journal and adm. Across the seven service units surveyed while
+# designing this (gitea, syncthing ×2, code-server ×2, ollama, OpenClaw), not
+# one sets StandardOutput — so this is a gap shared by all of them, not a
+# mistake peculiar to any.
+#
+# Nothing here needs a terminal. An inherited tty would make interactive
+# prompts and /dev/tty probes misbehave under a supervisor.
+StandardInput=null
+
+# UMask is applied when systemd CREATES the files below. 0077 means they are
+# born 0600 instead of 0644 — the systemd counterpart of the plist's Umask key,
+# and the reason the containment survives someone deleting the logs.
+UMask=0077
+
+# `append:` (systemd ≥ 240) is deliberate: the file must not be truncated on
+# restart, and both files are pre-created 0600 in the install steps above.
+StandardOutput=append:/home/YOU/.dsh/serve.stdout
+StandardError=append:/home/YOU/.dsh/serve.stderr
+
+[Install]
+WantedBy=default.target

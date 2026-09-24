@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  happy-dsh — hand-written reference LaunchAgent.
+
+  This is the version to edit yourself. `install.sh` generates the same shape
+  with your real paths filled in; use that one unless you want to own the file.
+
+  ── Install ─────────────────────────────────────────────────────────────────
+    cp ai.happy-dsh.web.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$UID ~/Library/LaunchAgents/ai.happy-dsh.web.plist
+    launchctl print          gui/$UID/ai.happy-dsh.web      # inspect
+    launchctl bootout        gui/$UID/ai.happy-dsh.web      # stop and unload
+
+  ── What you must change ────────────────────────────────────────────────────
+    1. Every `/Users/YOU` below.
+    2. `/usr/local/bin/dsh` → wherever your dsh lives. Check with
+       `command -v dsh`. If you run from a checkout instead of a global
+       install, use the node form:
+           <string>/opt/homebrew/bin/node</string>
+           <string>/Users/YOU/happy-dsh/apps/cli/lib/bin.js</string>
+    3. `dsh.example.com` → the authority your browser will use. It must match
+       what you put in your proxy and your local DNS. Add more <string> values
+       after it if you have several.
+    4. PATH — see the note on that key below.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.happy-dsh.web</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/dsh</string>
+    <string>web</string>
+
+    <!--
+      ── ORDER MATTERS — read this before reordering anything ────────────────
+      `--patch` is a LAUNCHER flag (apps/cli/src/args.ts), not a `dsh web`
+      flag. The launcher parses its own flags first and stops at the first
+      token it does not recognise, handing everything after that to the app:
+
+          "The launcher's flags come first and end at the first token it does
+           not know; everything from there on belongs to the booted app."
+
+      So every launcher flag must come BEFORE the first app flag. Put
+      `--no-open` above `--patch` and the launcher has already stopped
+      listening — the service starts and dies instantly with
+
+          error: unknown option '--patch'
+
+      `--trusted-host` must stay LAST: it is declared variadic
+      (`<authority...>`) and swallows every following token that does not
+      begin with a dash.
+    -->
+
+    <!--
+      Recommended when the browser is NOT on this machine: the host's own
+      desktop affordances are wrong for a remote browser. The directory picker
+      would open an OS dialog on this Mac's screen that you cannot see or
+      answer, and "Open in…" would spawn a file manager here.
+
+          deploy/remote-access/overlays/remote-browser.yml
+
+      Delete this pair if you only ever use the UI from this Mac's own browser.
+    -->
+    <string>--patch</string>
+    <string>/Users/YOU/happy-dsh/deploy/remote-access/overlays/remote-browser.yml</string>
+
+    <!-- Nobody is at the console; do not try to open a browser. -->
+    <string>--no-open</string>
+
+    <!-- Optional. Pin the port, or drop both lines to take the default (3080). -->
+    <string>--port</string>
+    <string>3080</string>
+
+    <string>--trusted-host</string>
+    <string>dsh.example.com</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/YOU</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!--
+      PATH is baked in at install time and is load-bearing: agent turns spawn
+      real shell commands, so a service running with launchd's minimal default
+      PATH (roughly /usr/bin:/bin:/usr/sbin:/sbin) will fail to find
+      homebrew's git, node, rg, and so on. Copy the output of
+      `echo $PATH` from your login shell, and re-run the installer after you
+      add a new tool that lives in a new place.
+
+      This is the same sharp edge ollama's installer has — it bakes
+      `Environment="PATH=$PATH"` from whatever shell ran the install. It is a
+      real tradeoff, not an oversight: the alternative is a curated PATH list
+      that goes stale in a different, quieter way.
+    -->
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+
+    <key>DSH_HOME</key>
+    <string>/Users/YOU/.dsh</string>
+
+    <!--
+      Service identity, so a process can tell that it is running inside the
+      supervised service. restart.sh reads these to decide whether an in-place
+      restart needs a detached handoff.
+
+      The marker alone is NOT proof of ancestry: a detached handoff inherits it
+      while running outside the job. restart.sh passes an explicit --detached
+      flag to its helper rather than re-deriving membership, because
+      re-deriving it would make the helper detach itself again, forever.
+    -->
+    <key>HAPPY_DSH_SERVICE</key>
+    <string>1</string>
+    <key>HAPPY_DSH_LAUNCHD_LABEL</key>
+    <string>ai.happy-dsh.web</string>
+  </dict>
+
+  <!--
+    RunAtLoad starts the service when you log in.
+
+    A LaunchAgent is a per-user, per-session job: it does not run before your
+    login, and it is torn down when the session ends. Starting a process as
+    you *before you log in* needs a LaunchDaemon, which runs as root — the
+    wrong shape for an agent that must act as you, with your credentials and
+    your file access. Log in once and it stays up from there.
+  -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!--
+    KeepAlive true, not {SuccessfulExit: false}: ANY exit comes back.
+
+    DSH exits 0 on SIGTERM, but a clean exit is also the simplest idiom for
+    "restart me" — a plugin that needs a restart can just let the process exit
+    and let launchd bring it back. Making every exit recoverable is what makes
+    that work, and it is the whole reason the unit does not need a restart
+    helper for the common case.
+
+    The cost: killing the process no longer leaves the service down. To
+    actually stop it, unload the job:
+
+        launchctl bootout gui/$UID/ai.happy-dsh.web
+
+    ...or use restart.sh --park, which also disables it for the next login.
+    This mirrors systemd's Restart=always, which likewise ignores an explicit
+    "systemctl stop" only because systemd special-cases it.
+  -->
+  <key>KeepAlive</key>
+  <true/>
+
+  <!--
+    launchd's restart rate limit, in seconds: it will not respawn this job more
+    often than this.
+
+    ── launchd throttles. It does NOT give up. ──────────────────────────────
+    Measured, not assumed: a job that exits 1 immediately, with this
+    ThrottleInterval and the KeepAlive below, was still being respawned after
+    60 seconds — `runs` climbed 2 → 3 → 5 → 6 and `state` stayed
+    `spawn scheduled`. launchd never stopped trying.
+
+    systemd is different: StartLimitIntervalSec + StartLimitBurst make it give
+    up and mark the unit `failed`. There is no launchd equivalent setting.
+
+    So on macOS a permanently broken configuration is throttled to roughly six
+    attempts a minute, forever. That is not a flood, but it is unbounded: the
+    appended stderr grows without limit and the machine keeps paying for the
+    restarts.
+
+    The real fix is the exit-code contract DSH does not implement yet. When it
+    lands, the macOS mechanism is a wrapper that maps "config is broken" (78)
+    to exit 0, so the SuccessfulExit=false below reads it as a clean stop and
+    stops respawning. That is the technique OpenClaw documents. Until then,
+    this interval is only a rate limit — the service will keep retrying a
+    configuration that cannot work.
+  -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <!--
+    How long launchd waits after SIGTERM before SIGKILL.
+
+    DSH's own guarantee is the input: apps/cli/src/process-shutdown.ts declares
+    PROCESS_SHUTDOWN_TIMEOUT_MS = 5000, after which it forces exit — and a
+    second signal escalates immediately. 15s is that contract plus margin, and
+    deliberately the same number as the systemd unit's TimeoutStopSec so the
+    two platforms behave alike. (launchd's own default is 20s.)
+  -->
+  <key>ExitTimeOut</key>
+  <integer>15</integer>
+
+  <!--
+    Applied when launchd CREATES StandardOutPath / StandardErrorPath below.
+    63 decimal is 0o077, so those files are born 0600 rather than 0644.
+
+    This is what makes the log containment real. Without it, the very first
+    launch on a machine where the files do not exist yet creates them
+    world-readable, and the launch token is exposed for the life of the file —
+    no amount of pre-creating them survives a user who deletes and restarts.
+    Verified: deleting both files and restarting produces 0600, not 0644.
+  -->
+  <key>Umask</key>
+  <integer>63</integer>
+
+  <!--
+    A server holding a WebSocket open should not be treated as background work,
+    or launchd may throttle its timers.
+  -->
+  <key>ProcessType</key>
+  <string>Interactive</string>
+
+  <!--
+    Nothing here needs a terminal. An inherited tty would make interactive
+    prompts and /dev/tty probes misbehave under a supervisor.
+  -->
+  <key>StandardInPath</key>
+  <string>/dev/null</string>
+
+  <!--
+    ── The point of this whole file ──────────────────────────────────────────
+    On boot DSH prints its URL with a launch token:
+
+        dsh web: http://…?token=<opaque>
+
+    That token mints a session cookie for ANY trusted authority. It is not
+    single-use and it does not expire — it is valid until the process exits.
+    Treat the line as a password.
+
+    A log file the supervisor creates for you is written with the process
+    umask, so by default a first launch leaves ~/.dsh/serve.stdout at 0644 —
+    readable by every account on the Mac, and by anything that indexes your
+    home directory. The Umask key above is what prevents that: the file is
+    born 0600.
+
+    install.sh also pre-creates both files at 0600 before loading the job.
+    That is now belt-and-braces rather than load-bearing, and it is worth
+    keeping: it means the directory is 0700 and the files exist and are
+    properly owned before launchd ever touches them.
+
+    If you are installing this file by hand, do the same — it costs four lines
+    and removes a whole class of surprise:
+
+        mkdir -p ~/.dsh && chmod 700 ~/.dsh
+        : > ~/.dsh/serve.stdout && chmod 600 ~/.dsh/serve.stdout
+        : > ~/.dsh/serve.stderr && chmod 600 ~/.dsh/serve.stderr
+
+        mkdir -p ~/.dsh && chmod 700 ~/.dsh
+        : > ~/.dsh/serve.stdout && chmod 600 ~/.dsh/serve.stdout
+        : > ~/.dsh/serve.stderr && chmod 600 ~/.dsh/serve.stderr
+
+    Then read your URL back with:
+
+        grep -Eo 'https?://[^ ]*token=[^ ]*' ~/.dsh/serve.stdout | tail -1
+
+    Note the file only grows on restart (one URL line per boot), so it stays
+    small. Truncate it any time with `: > ~/.dsh/serve.stdout`.
+  -->
+  <key>StandardOutPath</key>
+  <string>/Users/YOU/.dsh/serve.stdout</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/YOU/.dsh/serve.stderr</string>
+</dict>
+</plist>
