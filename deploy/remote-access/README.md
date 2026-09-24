@@ -1,5 +1,7 @@
 # Remote access
 
+English | [中文](README.zh.md)
+
 How to reach the DSH Web UI from another device — a phone, a laptop, a VPS — with
 authentication in front of it.
 
