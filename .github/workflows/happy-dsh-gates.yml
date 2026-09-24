@@ -190,11 +190,16 @@ jobs:
     # Unlike upstream's, this job has no master-only `if:`, so a manual dispatch
     # can exercise it from any branch without pushing there first.
     runs-on: ubuntu-latest
-    # Upstream runs this in 15 minutes because its own master pushes keep the
-    # Wine package cache seeded. A fork that has never run it starts cold: the
-    # `else` branch downloads the full ~100 MB apt closure before any gate runs.
-    # The cache saves at the end of the first run, so only that one pays.
-    timeout-minutes: 45
+    # Upstream runs this in 15 minutes. Measured here on the first run: 6m47s —
+    # but that run took a Wine package cache hit (~104 MB, key
+    # `wine-debs-ubuntu24-20260920.314.1`) seeded by upstream's own
+    # `CI master` wine job before this fork disabled that workflow, so it never
+    # paid the apt closure download this comment used to claim it would. The
+    # cache key carries the runner image version, so a GitHub image bump misses
+    # and the `else` branch below downloads the full closure before any gate
+    # runs. That case is the reason for the headroom over upstream's 15: this
+    # job now owns the cache's lifecycle, and nothing else on the fork seeds it.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
         with:
@@ -207,8 +212,8 @@ jobs:
       - name: Compose Wine apt cache key
         id: wine-cache-key
         run: echo "key=wine-debs-${ImageOS:-linux}-${ImageVersion:-v0}" >> "$GITHUB_OUTPUT"
-      # Restores and seeds, unlike the pnpm store: the first run pays the full
-      # download and every later one installs the .debs straight from here.
+      # On a hit the .debs install offline from here, so apt needs no
+      # repository access at all.
       - uses: actions/cache@v4
         with:
           path: ~/wine-debs
