@@ -1,0 +1,62 @@
+# happy-dsh — Caddy reverse proxy in front of the Web UI.
+#
+# Topology: Caddy terminates TLS on this host and proxies to the DSH backend on
+# loopback. DSH keeps its default bind, so the backend port is never reachable
+# from the network — only Caddy can talk to it.
+#
+# Start the backend (note `--no-open`: there is no one at the console to click a
+# browser window, and `--trusted-host` must name the authority browsers use):
+#
+#     dsh web --no-open --trusted-host dsh.example.com
+#
+# Then `caddy run --config Caddyfile` (or `caddy reload` after an edit).
+#
+# ── Why this shape ────────────────────────────────────────────────────────────
+# Caddy's `reverse_proxy` preserves the browser's Host header by default, and
+# that is load-bearing: the /api Host fence and the browser-session cookie's
+# authority binding BOTH read it. If the proxy rewrites Host to the upstream
+# (127.0.0.1:3080), every request is refused with 403 — loudly, which is why
+# this is a configuration bug and not a silent security hole.
+#
+# WebSocket upgrades are handled automatically by `reverse_proxy`, which matters
+# because the UI keeps a long-lived `/api/remote.mux` socket open. A proxy that
+# drops the Upgrade handshake yields a GUI that loads and then reconnects
+# forever.
+
+{
+	# Uncomment while testing with a self-signed / internal CA.
+	# local_certs
+}
+
+dsh.example.com {
+	# Caddy obtains and renews a publicly trusted certificate automatically via
+	# ACME. For a host that is NOT publicly reachable, use DNS-01 instead — see
+	# Caddyfile.dns01-cloudflare below — so no inbound port 80/443 is needed.
+	reverse_proxy 127.0.0.1:3080
+
+	# ── Optional: restrict by source network ──────────────────────────────
+	# A defence in depth on top of DSH's own authentication. Only meaningful if
+	# your clients have stable source addresses (a VPN or a fixed uplink).
+	#
+	# @notlan not remote_ip 192.168.1.0/24 100.64.0.0/10
+	# respond @notlan 403
+
+	# ── Do not add these ──────────────────────────────────────────────────
+	# header_up Host {upstream_hostport}   ← breaks the Host fence (403)
+	# Any rewriting of Origin. The fence requires Origin to equal Host.
+	#
+	# `X-Forwarded-*` headers Caddy sets are currently IGNORED by DSH. Do not
+	# rely on them; see README "Forwarded headers" for the state of that work.
+}
+
+# ── Logging (optional but recommended for a first deployment) ────────────────
+# Access logs make the 403-vs-401 distinction visible, which is the fastest way
+# to tell "the proxy mangled Host" apart from "the browser has no session".
+#
+# dsh.example.com {
+# 	log {
+# 		output file /var/log/caddy/dsh-access.log
+# 		format json
+# 	}
+# 	reverse_proxy 127.0.0.1:3080
+# }

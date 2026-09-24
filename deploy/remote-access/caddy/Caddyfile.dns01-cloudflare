@@ -1,0 +1,54 @@
+# happy-dsh — Caddy with a real certificate issued via DNS-01, no inbound ports.
+#
+# Use this when the host is NOT reachable from the public internet but you still
+# want a publicly trusted certificate. The DNS-01 challenge proves control of
+# the domain by writing a TXT record, so ACME never needs to reach the host.
+#
+# The result: a real certificate for a name that resolves only on your own
+# network. This is what makes a *private* deployment work in a browser without
+# installing a private CA on every client (which on iOS means a manual profile
+# install plus toggling full trust — doable, but this avoids it entirely).
+#
+# ⚠️  A publicly trusted certificate means the hostname is published to
+# Certificate Transparency logs. Do not treat the name as a secret.
+#
+# ── Build ────────────────────────────────────────────────────────────────────
+# Stock Caddy does NOT ship the Cloudflare DNS provider. Build one that does:
+#
+#     xcaddy build --with github.com/caddy-dns/cloudflare
+#
+# ── Credentials ──────────────────────────────────────────────────────────────
+# A Cloudflare API token with `Zone → DNS → Edit` on the zone, exported as
+# CF_API_TOKEN. Scope it to the single zone. Do not use a Global API Key.
+#
+#     CF_API_TOKEN=... caddy run --config Caddyfile.dns01-cloudflare
+#
+# ── Pair with a local DNS entry ──────────────────────────────────────────────
+# Create NO public A/AAAA record. Point the name at the host in whatever serves
+# DNS for your network, then start DSH with the same authority:
+#
+#     dsh web --no-open --trusted-host dsh.example.com
+
+{
+	email you@example.com
+}
+
+dsh.example.com {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+		resolvers 1.1.1.1
+	}
+
+	reverse_proxy 127.0.0.1:3080
+
+	# The browser-session cookie is currently issued WITHOUT `Secure`, even over
+	# TLS, because DSH's shipped transport assumes loopback HTTP. Recording it
+	# here so the gap is visible rather than surprising:
+	# https://github.com/fkysly/happy-dsh — see README "Cookie attributes".
+	#
+	# Caddy supplies HSTS and the modern TLS defaults on its own. Everything the
+	# browser sends to this authority is encrypted, so the cookie is protected
+	# in transit; the missing attribute only means a browser would also be
+	# willing to send it over plaintext to the same authority, which you are not
+	# serving.
+}

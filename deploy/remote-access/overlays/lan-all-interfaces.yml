@@ -1,0 +1,40 @@
+# happy-dsh — Recipe B: bind every interface and trust the derived LAN literals.
+#
+# Apply with:
+#     dsh web --patch /absolute/path/to/lan-all-interfaces.yml --no-open
+#
+# ⚠️  THIS DEPLOYMENT IS PLAINTEXT.
+# The DSH browser-session cookie is issued without the `Secure` attribute, so on
+# a plaintext transport it — and the one-time `?token=` URL — travel in the
+# clear. Anyone who can observe traffic on this network can replay the cookie
+# and act as you, with the full authority of an agent that can run commands.
+# Use this recipe only on a network you control end to end, or put TLS in front
+# of it (Recipe A). Prefer Recipe A outright when a proxy is an option.
+#
+# A patch replaces the targeted row's COMPLETE config, so this restates every
+# key the bundle's `webserver` row owns. Note in particular `port`: omitting it
+# would freeze this row at the schema default and silently kill `--port`.
+
+- id: webserver
+  config:
+    host: '0.0.0.0'
+    port: !!js ctx.webStartup.port ?? 3080
+    compression: gzip
+    compressionLevel: 1
+    compressionThresholdBytes: 1024
+
+# `--host` is INERT while this overlay is applied: the patch removes the
+# `!!js ctx.webStartup.host` expression, so nothing reads the flag any more.
+# `--port` still works, because the expression above preserves it.
+#
+# With `host: '0.0.0.0'` the Web runtime derives one port-less authority per
+# non-internal IPv4 address and feeds them to the /api fence as trusted hosts,
+# so LAN clients work without further configuration. On a multi-homed host —
+# a VPS, say — that set includes the public address. To narrow it, restate
+# `connection.trustedHosts` explicitly (you then also lose the convenience of
+# the derived LAN URL):
+#
+# - id: connection
+#   config:
+#     trustedHosts:
+#       - 192.168.1.50

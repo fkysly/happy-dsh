@@ -1,0 +1,40 @@
+# happy-dsh — Recipe A: serve behind a TLS reverse proxy on the same host.
+#
+# This is the file form of the recommended command-line invocation:
+#
+#     dsh web --no-open --trusted-host dsh.example.com
+#
+# Use the flag if you only need one authority. Use this overlay when you want
+# the authority list to live in version control instead of in a shell history.
+#
+# Apply with:
+#     dsh web --patch /absolute/path/to/behind-proxy.yml --no-open
+#
+# The proxy MUST forward the browser's original Host header, because both the
+# /api Host fence and the browser-session cookie's authority binding read it:
+#
+#     nginx      proxy_set_header Host $host;
+#     Caddy      (default — reverse_proxy preserves Host)
+#     Traefik    (default)
+#
+# A patch replaces the targeted row's COMPLETE config, so every row below
+# restates every key that row owns. Dropping a key silently resets it to the
+# schema default.
+
+# The webserver row is deliberately NOT touched: with a same-host proxy the
+# backend stays bound to 127.0.0.1 and only the proxy can reach it.
+
+- id: web-runtime
+  config:
+    openBrowser: !!js ctx.webStartup.openBrowser
+    printUrl: true
+    surfaceContext: true
+    trustedHosts:
+      - dsh.example.com
+
+- id: connection
+  config:
+    # Every authority a browser may use to reach this deployment. A port-less
+    # entry matches that hostname on ANY port; add host:port to pin one.
+    trustedHosts:
+      - dsh.example.com
