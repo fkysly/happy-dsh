@@ -12,6 +12,14 @@
 # deliberately does not edit either upstream file, so syncing upstream never
 # conflicts with it — add, drop, or reorder jobs here freely.
 #
+# The windows job below is lifted from the one master-only job in ci-master.yml
+# that a hosted runner can actually run: `windows node 24 / wine`, which drives
+# a real win-x64 Node under Wine. The two `serial / * (self-hosted standby)`
+# jobs in that file are not portable — they are a hot-standby drill that re-runs
+# the complete unsharded aggregate, single-worker, to prove upstream's
+# persistent 64-core VM can take over a lane. On a hosted runner that both
+# loses its subject and would run for hours.
+#
 # The fork is public, so standard GitHub-hosted runners are not billed.
 
 name: happy-dsh gates
@@ -172,3 +180,64 @@ jobs:
       - run: pnpm run check:ci:artifacts
       - run: pnpm run lint:contracts-ready
       - run: pnpm run typecheck:contracts-ready
+
+  windows:
+    name: windows gates under wine
+    # Same provisioning as ci-master.yml's `windows node 24 / wine`: a real
+    # win-x64 Node under Wine, which is why it needs `ubuntu-latest` rather than
+    # the pinned image the other jobs use — the apt cache key below is scoped to
+    # the runner image, and the gate script provisions its own Windows Node zip.
+    # Unlike upstream's, this job has no master-only `if:`, so a manual dispatch
+    # can exercise it from any branch without pushing there first.
+    runs-on: ubuntu-latest
+    # Upstream runs this in 15 minutes because its own master pushes keep the
+    # Wine package cache seeded. A fork that has never run it starts cold: the
+    # `else` branch downloads the full ~100 MB apt closure before any gate runs.
+    # The cache saves at the end of the first run, so only that one pays.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Compose Wine apt cache key
+        id: wine-cache-key
+        run: echo "key=wine-debs-${ImageOS:-linux}-${ImageVersion:-v0}" >> "$GITHUB_OUTPUT"
+      # Restores and seeds, unlike the pnpm store: the first run pays the full
+      # download and every later one installs the .debs straight from here.
+      - uses: actions/cache@v4
+        with:
+          path: ~/wine-debs
+          key: ${{ steps.wine-cache-key.outputs.key }}
+      # Runner provisioning only — the gate script assumes a `wine` binary on
+      # PATH and fails loud without one. The `wine` dispatcher package (not bare
+      # `wine64`) is what puts a binary there.
+      - name: Install Wine
+        run: |
+          if compgen -G "$HOME/wine-debs/*.deb" > /dev/null; then
+            # The restored archive is the full --download-only closure of
+            # `wine` for this runner image, so installing the .debs directly
+            # with dpkg needs no repository access. apt-get would instead
+            # re-download the same closure from the mirror.
+            if ! sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$HOME"/wine-debs/*.deb; then
+              sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a || true
+              sudo apt-get install -y --no-install-recommends "$HOME"/wine-debs/*.deb
+            fi
+          else
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends --download-only wine
+            mkdir -p "$HOME/wine-debs"
+            cp /var/cache/apt/archives/*.deb "$HOME/wine-debs/" 2>/dev/null || true
+            sudo apt-get install -y --no-install-recommends wine
+          fi
+      # The script snapshots the working tree into a scratch directory and runs
+      # both the install and the gates there, so the checkout stays untouched.
+      - name: Run the Wine Windows gates
+        run: bash scripts/wine-windows-gates.sh
+      - name: Shut down wineserver
+        if: always()
+        run: wineserver -k 2>/dev/null || true
