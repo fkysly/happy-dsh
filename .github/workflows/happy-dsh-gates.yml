@@ -114,6 +114,15 @@ jobs:
     name: snapshot gates
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      # Observed flake, not a code failure: the config's default snapshot
+      # concurrency is min(5, availableParallelism()), which is 4 on a 4-vCPU
+      # runner — four recorded scenarios sharing four cores, and the slowest
+      # blows the 120 s testTimeout the config hardcodes
+      # (`snapshots/sdk/sdk.snapshot.ts … replays subagent-continuable-inheritance`
+      # timed out on an unchanged commit that had passed minutes earlier).
+      # There is no timeout knob for this lane, so cap the concurrency instead.
+      DSH_SNAPSHOT_MAX_CONCURRENCY: '2'
     steps:
       - uses: actions/checkout@v6
         with:
