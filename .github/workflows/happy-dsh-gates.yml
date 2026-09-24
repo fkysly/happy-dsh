@@ -68,6 +68,13 @@ jobs:
       # suite and instruments every file, so cap the workers instead of letting
       # vitest scale to the CPU count and exhaust memory.
       DSH_COVERAGE_MAX_WORKERS: '2'
+      # Upstream's own hosted-runner finding, quoted from ci.yml: managed-scope
+      # teardown cases run past the default 5000 ms per-test budget once a
+      # lane's workers and sibling gates share one host, and the lane is green
+      # at 90000. This lane hit the same wall without it —
+      # scripts/persistence-schema.spec.ts timed out at 5000 ms while every
+      # other file in the run passed.
+      DSH_COVERAGE_TEST_TIMEOUT_MS: '90000'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -109,7 +116,27 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # The snapshots replay real tool calls through the sandbox, which refuses
+      # to run a command unconfined when no backend is usable — the recorded
+      # output then carries a sandbox-unavailable error in place of the
+      # command's own. Without bubblewrap every bash-backed snapshot mismatches.
+      - name: Install dependencies and prepare bubblewrap
+        run: |
+          pnpm install --frozen-lockfile &
+          install_pid=$!
+          bash scripts/prepare-ci-bubblewrap.sh &
+          sandbox_pid=$!
+          install_status=0
+          wait "$install_pid" || install_status=$?
+          sandbox_status=0
+          wait "$sandbox_pid" || sandbox_status=$?
+          if (( install_status != 0 )); then exit "$install_status"; fi
+          exit "$sandbox_status"
+      # The Web snapshot executes the built client in a real browser. Only
+      # Chromium is needed here: the WebKit cases live in the `.e2e.ts` lane,
+      # which this gate does not include.
+      - name: Install Playwright Chromium and its hosted dependencies
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps chromium
       - run: pnpm run check:ci:snapshot
 
   artifacts:
@@ -126,7 +153,20 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # The built-bin smoke runs a real CLI turn through the bash tool, so it
+      # needs a usable sandbox backend for the same reason the snapshots do.
+      - name: Install dependencies and prepare bubblewrap
+        run: |
+          pnpm install --frozen-lockfile &
+          install_pid=$!
+          bash scripts/prepare-ci-bubblewrap.sh &
+          sandbox_pid=$!
+          install_status=0
+          wait "$install_pid" || install_status=$?
+          sandbox_status=0
+          wait "$sandbox_pid" || sandbox_status=$?
+          if (( install_status != 0 )); then exit "$install_status"; fi
+          exit "$sandbox_status"
       # This gate builds; the two after it read that build's outputs, which is
       # why they share the job rather than paying for a second build.
       - run: pnpm run check:ci:artifacts
