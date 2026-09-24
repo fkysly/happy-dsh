@@ -4,8 +4,9 @@
 #
 #     dsh web --no-open --trusted-host dsh.example.com
 #
-# Use the flag if you only need one authority. Use this overlay when you want
-# the authority list to live in version control instead of in a shell history.
+# Use the flag when one authority is enough. Use this overlay when you want the
+# authority list to live in version control — or when you want both, which the
+# expressions below support.
 #
 # Apply with:
 #     dsh web --patch /absolute/path/to/behind-proxy.yml --no-open
@@ -20,21 +21,38 @@
 # A patch replaces the targeted row's COMPLETE config, so every row below
 # restates every key that row owns. Dropping a key silently resets it to the
 # schema default.
+#
+# ── ⚠️  Do NOT write a bare literal authority list here ──────────────────────
+#     trustedHosts: ['dsh.example.com']          ← WRONG
+#
+# That replaces the composed expression and silently discards every
+# `--trusted-host` value, so a deployment that passes both the flag and this
+# file ends up refusing the flag's authority with 403. Keep the expression and
+# concatenate, as below. The upstream bundle header states the same rule.
 
 # The webserver row is deliberately NOT touched: with a same-host proxy the
 # backend stays bound to 127.0.0.1 and only the proxy can reach it.
+#
+# The `--host` flag stays meaningful for this overlay, because
+# `webStartup.host` still feeds the untouched `webserver` row.
 
 - id: web-runtime
+  name: '@deepseek-ai/dsh-web-app'
   config:
     openBrowser: !!js ctx.webStartup.openBrowser
     printUrl: true
     surfaceContext: true
-    trustedHosts:
-      - dsh.example.com
+    # Authorities named on the command line, plus the ones listed here.
+    #
+    # ⚠️  `!!js` takes a SCALAR — a quoted string holding the expression. A YAML
+    # flow sequence (`!!js [a, b]`) makes the tag apply to a sequence node and
+    # the overlay fails to parse with "unknown tag !<tag:yaml.org,2002:js>".
+    trustedHosts: !!js "[...ctx.webStartup.trustedHosts, 'dsh.example.com']"
 
 - id: connection
+  name: '@deepseek-ai/dsh-client-connection'
   config:
-    # Every authority a browser may use to reach this deployment. A port-less
-    # entry matches that hostname on ANY port; add host:port to pin one.
-    trustedHosts:
-      - dsh.example.com
+    # Unchanged from the bundle: it already reads the composed web-runtime
+    # value, so it picks up both sources above. Restated because a patch
+    # replaces the whole config — see the note on restating keys.
+    trustedHosts: !!js ctx.webRuntime.trustedHosts

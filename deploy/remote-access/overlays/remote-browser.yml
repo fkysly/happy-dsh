@@ -1,0 +1,55 @@
+# happy-dsh — Recipe A/C: make the Web UI behave like a normal website when
+# nobody is sitting at the host's console.
+#
+# Apply alongside the deployment overlay:
+#
+#     dsh web --no-open --trusted-host dsh.example.com \
+#             --patch /abs/path/behind-proxy.yml \
+#             --patch /abs/path/remote-browser.yml
+#
+# ── Why this is needed ──────────────────────────────────────────────────────
+# Two capabilities resolve against the HOST's desktop, which is exactly right
+# when the browser is on the same machine as the server and exactly wrong when
+# it is not:
+#
+#   * the directory picker — with a loopback bind on macOS/Windows and no SSH
+#     launch, the adaptive chooser selects the `native` backend, which opens an
+#     OS dialog on the host's screen. A remote browser gets a prompt it cannot
+#     see and cannot answer.
+#   * "Open in..." — the button spawns a file manager or editor on the host.
+#
+# Disabling the adaptive chooser and mounting the browse backend directly is the
+# overlay the upstream bundle header invites:
+#
+#     "Mount -native or -browse directly in an overlay to pin the interaction."
+#
+# The browse backend serves listing and creation over the Remote API, so the
+# picker renders inside the browser. Nothing appears on the host display.
+#
+# Note: this is a CONFIGURATION change, not a core change. It also is not needed
+# under Recipe B (`lan-all-interfaces.yml`), where a non-loopback bind already
+# resolves the chooser to `browse` on its own — see resolveDirectoryPickerBackend.
+
+# Pin the picker to the browse backend: disable the adaptive row, mount the
+# explicit one. `name` on a patch entry is a guard — it asserts the row being
+# targeted really is the one you meant, and skips the patch if not.
+- id: directory-picker
+  name: '@deepseek-ai/dsh-host-directory-picker-auto'
+  disabled: true
+
+- insert:
+    - id: directory-picker-browse
+      name: '@deepseek-ai/dsh-host-directory-picker-browse'
+      config:
+        # Complete-result bound of one listing level.
+        maxEntries: 1000
+
+# Drop the host-side "Open in..." affordances. Both halves go, so no button is
+# rendered rather than a button that acts on the wrong machine.
+- id: open-in-app
+  name: '@deepseek-ai/dsh-host-open-in-app'
+  disabled: true
+
+- id: ui-open-in-app
+  name: '@deepseek-ai/dsh-client-ui-open-in-app'
+  disabled: true

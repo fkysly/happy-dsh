@@ -57,6 +57,76 @@ Then start a proxy:
 
 If you would rather keep the authority list in version control than in your shell
 history, use the file form: [`overlays/behind-proxy.yml`](overlays/behind-proxy.yml).
+The flag and the file compose — the file keeps the composed expression and
+concatenates its own literals, so passing both does not silently discard either.
+
+**Also apply [`overlays/remote-browser.yml`](overlays/remote-browser.yml).** Recipe A
+keeps the backend on loopback, which means the host is treated as having an
+operator at its console — and two affordances then act on the *host's* desktop
+instead of the browser. See [Host desktop affordances](#host-desktop-affordances).
+
+```sh
+dsh web --no-open --trusted-host dsh.example.com \
+        --patch /abs/path/behind-proxy.yml \
+        --patch /abs/path/remote-browser.yml
+```
+
+### Host desktop affordances
+
+Two capabilities resolve against the machine running the server. That is correct
+when the browser is on that machine and wrong when it is not:
+
+| Affordance | What happens without the overlay |
+|---|---|
+| **Directory picker** | The adaptive chooser picks the `native` backend whenever the bind is loopback, the process was not launched over SSH, and the platform is macOS or Windows — the last condition being *assumed*, not probed. An OS dialog opens **on the host's screen**, which a remote browser can never answer. |
+| **"Open in…"** | The button spawns a file manager or editor **on the host**. |
+
+`overlays/remote-browser.yml` pins the picker to the `browse` backend — which
+serves listing and creation over the Remote API, so the picker renders inside the
+browser — and drops both halves of the "Open in…" surface.
+
+This is a configuration change, not a core change. The bundle's own header
+invites it:
+
+> Resolve bind host, SSH launch, and display once at boot, then mount the matching
+> dual-face directory picker. **Mount `-native` or `-browse` directly in an overlay
+> to pin the interaction.**
+
+**Recipe B does not need this overlay** — a non-loopback bind already resolves the
+chooser to `browse` on its own. That is the one place where the *less* locked-down
+recipe is the more convenient one.
+
+### Writing overlays: two traps
+
+Both of these fail silently or confusingly, and both bit this repository's own
+files during development.
+
+**1. A patch replaces the row's whole `config` — it does not merge.** Restate every
+key the row owns. The most common casualty is `webserver.port`: omit it and the row
+freezes at the schema default, quietly killing `--port`.
+
+**2. Never replace a composed `trustedHosts` with a bare literal.** Writing
+
+```yaml
+trustedHosts: ['dsh.example.com']      # WRONG
+```
+
+discards the expression the bundle put there, so every `--trusted-host` value
+disappears and the deployment refuses that authority with 403. Keep the expression
+and concatenate.
+
+**3. `!!js` takes a scalar, not a flow sequence.** `!!js [a, b]` makes the tag apply
+to a sequence node and the overlay fails to parse:
+
+```
+YAMLException: unknown tag !<tag:yaml.org,2002:js>
+```
+
+Quote the whole expression instead:
+
+```yaml
+trustedHosts: !!js "[...ctx.webStartup.trustedHosts, 'dsh.example.com']"
+```
 
 ### The one thing that breaks this
 
@@ -114,6 +184,8 @@ Requirements and gotchas:
 - The certificate is for the `*.ts.net` name, so that name is the authority you
   pass to `--trusted-host`, and the name is public in Certificate Transparency
   logs (it is not a secret).
+- Tailscale Serve proxies to loopback too, so **apply `remote-browser.yml`** for
+  the same reason Recipe A needs it.
 
 ---
 
