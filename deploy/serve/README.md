@@ -1,5 +1,7 @@
 # Running the Web UI as a service
 
+English | [中文](README.zh.md)
+
 How to keep happy-dsh running after you close the terminal, and bring it back
 after a reboot — without leaking the credential it prints on startup.
 
