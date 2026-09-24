@@ -194,21 +194,45 @@ describe('connection node half', () => {
     await fiber.dispose()
   })
 
-  it('injects validated browser recovery timing and withdraws it on disposal', async () => {
+  it('injects validated recovery timing and the settings-write grant, withdrawing both on disposal', async () => {
     const { ctx, dispose } = await mounted({ recovery: { generationReadyTimeoutMs: 25_000 } })
     try {
       const rows: IndexInjection[] = []
       ctx.emit('webserver/index-inject', rows)
-      expect(rows).toEqual([{
-        kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: {
-          backoffBaseMs: 500, backoffFactor: 2, backoffMaxMs: 10_000,
-          generationReadyWarnMs: 3_000, generationReadyTimeoutMs: 25_000,
+      expect(rows).toEqual([
+        {
+          kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: {
+            backoffBaseMs: 500, backoffFactor: 2, backoffMaxMs: 10_000,
+            generationReadyWarnMs: 3_000, generationReadyTimeoutMs: 25_000,
+          },
         },
-      }])
+        // This deployment names no trusted authority, so a served page keeps
+        // every settings write process-local.
+        { kind: 'global', name: '__DSH_CONNECTION_REMOTE_WRITES__', value: false },
+      ])
       await dispose()
       const after: IndexInjection[] = []
       ctx.emit('webserver/index-inject', after)
       expect(after).toEqual([])
+    } finally {
+      await dispose()
+    }
+  })
+
+  it.each([
+    { label: 'a deployment with no trusted authority', config: {}, value: false },
+    { label: 'a named trusted authority', config: { trustedHosts: ['dsh.example.com'] }, value: true },
+    {
+      label: 'an explicit refusal despite a trusted authority',
+      config: { trustedHosts: ['dsh.example.com'], remoteWrites: false },
+      value: false,
+    },
+  ])('publishes the settings-write grant for $label', async ({ config, value }) => {
+    const { ctx, dispose } = await mounted(config)
+    try {
+      const rows: IndexInjection[] = []
+      ctx.emit('webserver/index-inject', rows)
+      expect(rows).toContainEqual({ kind: 'global', name: '__DSH_CONNECTION_REMOTE_WRITES__', value })
     } finally {
       await dispose()
     }

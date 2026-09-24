@@ -445,6 +445,17 @@ export interface ConnectionConfig {
   cookieMaxAgeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
+  /**
+   * Whether a non-loopback page may persist settings on this Host. The resolved
+   * answer reaches the page as `__DSH_CONNECTION_REMOTE_WRITES__`; without it a
+   * served page keeps every settings write process-local.
+   *
+   * Default: derived -- true when `trustedHosts` names at least one authority,
+   * because such a client is already admitted to an agent that runs commands on
+   * this Host, so persisting a setting grants it nothing further. Set false to
+   * keep those clients memory-only.
+   */
+  remoteWrites?: boolean
 }
 
 /** Timing for generation readiness and automatic reconnection. */
