@@ -246,3 +246,58 @@ jobs:
       - name: Shut down wineserver
         if: always()
         run: wineserver -k 2>/dev/null || true
+
+  node-compat:
+    name: node ${{ matrix.node }} compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      DSH_NODE_COMPAT_SKIP_TYPECHECK: '1'
+      DSH_GATE_CONCURRENCY: '1'
+      # Upstream's value. It selects the official client build environment for
+      # this lane, so these smokes exercise the upstream client configuration
+      # rather than the fork's. Nothing here asserts branding — the one Web
+      # snapshot that does reads the profile from the build and adapts — so this
+      # is upstream's choice carried over rather than a requirement. Drop it if
+      # the fork's own build configuration should be what the matrix proves.
+      DSH_BUILD_CLIENT_PROFILE: official
+    strategy:
+      # One version's incompatibility says nothing about another's.
+      fail-fast: false
+      matrix:
+        include:
+          # Pinned inside 24.0-24.11.1: those releases carry the v1 internal
+          # loader while reporting major 24, and every other lane tracks the
+          # latest 24, which is v2. A bare `24` here would retest that same v2.
+          - node: '22.19'
+          - node: '24.9'
+          - node: '26'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      # Several smokes boot a real CLI, which shells out through the sandbox.
+      - name: Install dependencies and prepare bubblewrap
+        run: |
+          pnpm install --frozen-lockfile &
+          install_pid=$!
+          bash scripts/prepare-ci-bubblewrap.sh &
+          sandbox_pid=$!
+          install_status=0
+          wait "$install_pid" || install_status=$?
+          sandbox_status=0
+          wait "$sandbox_pid" || sandbox_status=$?
+          if (( install_status != 0 )); then exit "$install_status"; fi
+          exit "$sandbox_status"
+      - name: Run compatibility smokes
+        run: pnpm run check:node-compat
+      # Kept out of the gate aggregate: the shape a Node release carries only
+      # changes with the Node version, so this belongs to the version matrix
+      # rather than to every commit's checks.
+      - name: Check Loader internal shape detection
+        run: pnpm exec vitest run packages/boot/app-boot/tests/loader-shape.compat.spec.ts
