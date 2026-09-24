@@ -6,6 +6,9 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)" />
+    <!-- Match anchor for apps/web/vite.config.ts clientDocumentTitle(): the
+         plugin swaps this exact string for $DSH_CLIENT_TITLE, so editing it
+         here silently disables that override. -->
     <title>DSH Local Build</title>
   </head>
   <body>

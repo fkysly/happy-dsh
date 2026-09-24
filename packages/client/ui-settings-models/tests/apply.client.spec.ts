@@ -16,7 +16,7 @@ import {
 } from '../src/onboarding-copy.ts'
 import { ModelsSection } from '../src/client/ModelsSection.tsx'
 import { DeepSeekOnboardingDialog } from '../src/client/DeepSeekOnboardingDialog.tsx'
-import { WelcomeNotice } from '../src/client/WelcomeNotice.tsx'
+import { WelcomeNoticeStore } from '../src/client/welcome-store.ts'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import * as hostPlugin from '../src/index.ts'
 import { ONBOARDING_CONFIG_GLOBAL } from '../src/onboarding-config.ts'
@@ -80,7 +80,7 @@ describe('ui-settings-models apply', () => {
       for (const row of rows) if (row.kind === 'global') vi.stubGlobal(row.name, row.value)
       const plugin = ctx.plugin({ inject: [...inject], apply })
       await plugin.await()
-      expect(slots.entries('settings.onboarding').map(entry => entry.options.id)).toEqual(['welcome-notice', 'deepseek-official'])
+      expect(slots.entries('settings.onboarding').map(entry => entry.options.id)).toEqual(['deepseek-official'])
       const onboarding = slots.entries('settings.onboarding').find(entry => entry.options.id === 'deepseek-official')!
       expect((onboarding.inject as () => { automatic: boolean })().automatic).toBe(false)
       expect(slots.entries('settings.section').map(entry => entry.options.id)).toEqual(['models'])
@@ -133,11 +133,7 @@ describe('ui-settings-models apply', () => {
     expect(injected.hooks.snapshot).toBe(injected.controller.store)
     expect(typeof injected.operations.writeSettings).toBe('function')
     const onboarding = before.slots.entries('settings.onboarding')
-    expect(onboarding).toHaveLength(2)
-    expect(onboarding.find(entry => entry.options.id === 'welcome-notice')).toMatchObject({
-      component: WelcomeNotice,
-      options: { id: 'welcome-notice', order: -100 },
-    })
+    expect(onboarding.map(entry => entry.options.id)).toEqual(['deepseek-official'])
     const deepSeek = onboarding.find(entry => entry.options.id === 'deepseek-official')!
     expect(deepSeek.component).toBe(DeepSeekOnboardingDialog)
     expect(deepSeek.options).toMatchObject({ id: 'deepseek-official', order: 0 })
@@ -154,7 +150,7 @@ describe('ui-settings-models apply', () => {
     declare(after.slots)
     await Promise.resolve()
     expect(after.slots.entries('settings.section')[0]!.component).toBe(ModelsSection)
-    expect(after.slots.entries('settings.onboarding')).toHaveLength(2)
+    expect(after.slots.entries('settings.onboarding')).toHaveLength(1)
     // The self-inflicted ledger notifications hit the duplicate guard.
     expect(after.slots.entries('settings.section')).toHaveLength(1)
   })
@@ -193,7 +189,7 @@ describe('ui-settings-models apply', () => {
     declare(b.slots)
     await Promise.resolve()
     expect(b.slots.entries('settings.section')[0]!.component).toBe(ModelsSection)
-    expect(b.slots.entries('settings.onboarding')).toHaveLength(2)
+    expect(b.slots.entries('settings.onboarding')).toHaveLength(1)
     // The locale path also recovers through the same ledger re-check.
     b.locale.setLocale('en')
     expect(resolveSlotLabel(b.slots.entries('settings.section')[0]!.options.label)).toBe('Models')
@@ -237,17 +233,18 @@ describe('ui-settings-models apply', () => {
   })
 
   it('keeps remote-browser acknowledgement in process memory', async () => {
+    // Nothing mounts the notice any more, so the spec builds the store over the
+    // same settings scope the registration used to hand it.
     const b = await bench(false)
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.onboarding')
-      .find(candidate => candidate.options.id === 'welcome-notice')!
-    const injected = (
-      entry.inject as unknown as () => import('../src/client/WelcomeNotice.tsx').WelcomeNoticeInjected
-    )()
+    const controller = new WelcomeNoticeStore(
+      b.ctx.configForms.get<Record<string, unknown>>(WELCOME_NOTICE_SETTINGS_NAMESPACE),
+    )
+    onTestFinished(() => { controller.dispose() })
 
-    await injected.controller.load()
-    expect(injected.controller.store.getSnapshot()).toEqual({
+    await controller.load()
+    expect(controller.store.getSnapshot()).toEqual({
       status: 'ready', acknowledged: false, error: null,
     })
   })
@@ -298,7 +295,7 @@ describe('pushed invalidations', () => {
   })
 
   it('welcome state follows the shared mirror across document commits', async () => {
-    // The welcome notice derives from its settings scope: a document commit
+    // The welcome store derives from its settings scope: a document commit
     // reaches it through the mirror's one refresh, with no routing here.
     const mock = RemoteMock.create().load(remoteDefaultResponses)
     const namespace = {
@@ -314,15 +311,13 @@ describe('pushed invalidations', () => {
     const b = await bench(true, mock)
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.onboarding')
-      .find(candidate => candidate.options.id === 'welcome-notice')!
-    const injected = (
-      entry.inject as unknown as
-      () => import('../src/client/WelcomeNotice.tsx').WelcomeNoticeInjected
-    )()
-    await injected.controller.load()
+    const controller = new WelcomeNoticeStore(
+      b.ctx.configForms.get<Record<string, unknown>>(WELCOME_NOTICE_SETTINGS_NAMESPACE),
+    )
+    onTestFinished(() => { controller.dispose() })
+    await controller.load()
     await vi.waitFor(() => {
-      expect(injected.hooks.welcome.getSnapshot()).toMatchObject({ status: 'ready', acknowledged: false })
+      expect(controller.store.getSnapshot()).toMatchObject({ status: 'ready', acknowledged: false })
     })
     mock.remote.settings.describe.mockResolvedValue(ok({
       ...document,
@@ -330,7 +325,7 @@ describe('pushed invalidations', () => {
     }))
     b.remote.emit('settings/document-updated', ['ui-settings-general', 1])
     await vi.waitFor(() => {
-      expect(injected.hooks.welcome.getSnapshot()).toMatchObject({ status: 'ready', acknowledged: true })
+      expect(controller.store.getSnapshot()).toMatchObject({ status: 'ready', acknowledged: true })
     })
   })
 
