@@ -26,6 +26,10 @@ PORT=3899
 REGISTRY=""
 KEEP=0
 BOOT_TIMEOUT_SECONDS=120
+# A name this smoke declares as reachable, to check the market's origin fence
+# agrees with the host's. It is never resolved: the fence compares the Host
+# header, and curl sends whatever we tell it to.
+FENCE_NAME=preinstall-smoke.internal
 
 step() { printf '\n==> %s\n' "$1"; }
 note() { printf '    %s\n' "$1"; }
@@ -92,8 +96,11 @@ for spec in $SPECS; do
   note "composed: $name"
 done
 
-step "Booting the service on port $PORT"
-DSH_HOME="$DSH_HOME_DIR" node "$DSH_BIN" web --no-open --port "$PORT" > "$LOG" 2>&1 &
+step "Booting the service on port $PORT, reached by name"
+# `--trusted-host` is what a deployment does to be reachable by a name, and it is
+# the shape the market's own fence has to agree with. Variadic, so it comes last.
+DSH_HOME="$DSH_HOME_DIR" node "$DSH_BIN" web --no-open --port "$PORT" \
+  --trusted-host "$FENCE_NAME" > "$LOG" 2>&1 &
 BOOT_PID=$!
 
 # The token URL is the readiness signal: it is printed once the app is serving,
@@ -114,6 +121,8 @@ if [ "$ready" != 1 ]; then
   printf '\n'; tail -25 "$LOG"
   die "the service did not report itself ready within ${BOOT_TIMEOUT_SECONDS}s"
 fi
+SERVER_TOKEN="$(grep -Eo 'token=[^ ]+' "$LOG" | tail -1)"
+SERVER_TOKEN="${SERVER_TOKEN#token=}"
 
 code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/" 2>/dev/null || echo 000)"
 if [ "$code" != "401" ] && [ "$code" != "200" ] && [ "$code" != "302" ]; then
@@ -121,5 +130,44 @@ if [ "$code" != "401" ] && [ "$code" != "200" ] && [ "$code" != "302" ]; then
   die "the service reported ready but answers HTTP $code on 127.0.0.1:$PORT"
 fi
 
+step "The market's origin fence agrees with the host's"
+# The market registers its routes as `exact` matches on the bare webServer, so
+# they never pass through the host's own /api fence and the market re-implements
+# the rule. That re-implementation has been wrong twice for the shape this
+# smoke exists to cover: 1.65.1 refused every named host, and 1.65.3 read the
+# host's declared authorities once at mount, before the connection service it
+# reads them from exists -- so a deployment reached by a name was read-only
+# while loopback worked (dsh-market#729). Both are invisible to a version check.
+JAR="$DSH_HOME_DIR/fence.cookies"
+curl -sS -c "$JAR" -H "Host: $FENCE_NAME" -o /dev/null "http://127.0.0.1:$PORT/?token=$SERVER_TOKEN" || true
+
+fence_post() {
+  curl -sS -b "$JAR" -o "$DSH_HOME_DIR/fence.body" -w '%{http_code}' \
+    -X POST "http://127.0.0.1:$PORT/dsh-market/channel" \
+    -H "Host: $1" -H "Origin: https://$1" -H 'Content-Type: application/json' -d '{}'
+}
+
+declared_status="$(fence_post "$FENCE_NAME")"
+if [ "$declared_status" = "403" ] && grep -q 'untrusted origin' "$DSH_HOME_DIR/fence.body"; then
+  printf '\n'; tail -25 "$LOG"
+  printf '\n  ✗ the market refused a mutation from %s, an authority this deployment declares.\n' "$FENCE_NAME"
+  printf '    Its fence never sees the host'"'"'s /api rule (exact routes win over the prefix),\n'
+  printf '    so it has to read the declared authorities itself -- and it is not doing so here.\n'
+  printf '    On dsh-market 1.65.3 that is #729: the read happens at mount, before the\n'
+  printf '    `connection` service exists, and the empty fallback then narrows the fence\n'
+  printf '    to loopback for the life of the process. Fix it upstream, or pin a version\n'
+  printf '    that reads the authorities per request.\n\n'
+  exit 1
+fi
+note "declared authority accepted (HTTP $declared_status)"
+
+undeclared_status="$(fence_post preinstall-smoke.undeclared)"
+if [ "$undeclared_status" != "403" ]; then
+  printf '\n'; tail -25 "$LOG"
+  die "the market accepted a mutation from an undeclared host (HTTP $undeclared_status)"
+fi
+note "undeclared host refused (HTTP 403)"
+
 printf '\n  ✓ installed and booted: %s\n' "$SPECS"
-printf '    the service answered HTTP %s after %ss\n\n' "$code" "$waited"
+printf '    the service answered HTTP %s after %ss\n' "$code" "$waited"
+printf '    and its market agrees with %s about who may mutate\n\n' "$FENCE_NAME"
