@@ -48,7 +48,7 @@ loaded, so the first boot already has them:
 
 | plugin | what it is |
 |---|---|
-| `dshmarket@1.65.3` | the community plugin market — Settings → **Plugin Market**: browse, search, one-click install, themes, updates |
+| `dshmarket@1.65.4` | the community plugin market — Settings → **Plugin Market**: browse, search, one-click install, themes, updates |
 | `dsh-find-plugin@0.4.0` | the same catalogue inside the conversation, so the agent can search it and install what you ask for |
 
 The versions are **pins, not ranges**: `install.sh` names an exact pair, so two
