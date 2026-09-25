@@ -103,21 +103,26 @@ gh api -X PUT "repos/fkysly/happy-dsh/actions/workflows/<id>/enable"    # turn o
 pnpm run happy-dsh:version release          # 0.1.0-dev.4 -> 0.1.0
 git commit -am 'release: happy-dsh 0.1.0'
 git push origin master                      # via a pull request, like anything else
-git tag happy-dsh-v0.1.0 && git push origin happy-dsh-v0.1.0
 ```
 
-推 tag 就是发布动作。tag 一落地，发布 workflow 就构建那个提交并创建 GitHub Release。
-
-然后把下一条开发线打开，免得你下一件构建出来的东西还悄悄叫 `0.1.0`：
-
-```sh
-pnpm run happy-dsh:version dev              # 0.1.0 -> 0.1.1-dev.1
-```
-
-想先看不发布的完整彩排 —— 它会校验、构建、把 notes 写出来，然后停下：
+等这个提交进了 `master` 且闸全绿，可以先做一次不发布的彩排。它会校验、构建、把 notes
+写出来，然后在创建任何东西之前停下 —— 而且**版本文件还写着 `-dev.N` 时它会被拒**，
+因为它彩排的是发行提交，不是开发线：
 
 ```sh
 gh workflow run happy-dsh-release.yml -f dry-run=true
+```
+
+然后 tag 才是发布动作。tag 一落地，发布 workflow 就构建那个提交并创建 GitHub Release：
+
+```sh
+git tag happy-dsh-v0.1.0 && git push origin happy-dsh-v0.1.0
+```
+
+最后把下一条开发线打开，免得你下一件构建出来的东西还悄悄叫 `0.1.0`：
+
+```sh
+pnpm run happy-dsh:version dev              # 0.1.0 -> 0.1.1-dev.1
 ```
 
 ---
