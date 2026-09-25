@@ -41,6 +41,45 @@ and checks that the mode actually stuck before it finishes.
 
 ---
 
+## What ends up in your profile
+
+`install.sh` adds two plugins to the profile **before** the service is ever
+loaded, so the first boot already has them:
+
+| plugin | what it is |
+|---|---|
+| `dshmarket` | the community plugin market — Settings → **Plugin Market**: browse, search, one-click install, themes, updates |
+| `dsh-find-plugin` | the same catalogue inside the conversation, so the agent can search it and install what you ask for |
+
+**Both are third-party packages**, and that is worth knowing before you accept
+the default: they come from npm (`github.com/dsh-market/dsh-market`,
+`github.com/awesome-dsh-plugin/dsh-find-plugin`, both MIT), not from this
+repository. Neither is a dependency of the build, they update on their own
+release schedule, and the market can install further plugins for you from a
+[curated registry](https://awesome-dsh-plugin.com). A deployment that wants
+none of that:
+
+```sh
+./install.sh --trusted-host dsh.dev --no-default-plugins
+
+# or keep the defaults and add your own
+./install.sh --trusted-host dsh.dev --plugin github:you/your-plugin
+```
+
+The order is the reason there is no second restart: `dsh plugin` initializes a
+profile that does not exist yet from its shipped template, so a fresh `web`
+profile arrives with `dsh-base` and `dsh-web-app` *and* these plugins in one
+boot. Nothing else in the profile is touched — `add` appends to its
+`package.json`.
+
+They are ordinary profile dependencies, so `./install.sh --uninstall` leaves
+them exactly where they are, with the rest of `$DSH_HOME`. To watch them
+compose — the last two layers of the profile, after the bundles:
+
+```sh
+dsh --profile web --dump-config | tail -6
+```
+
 ## Two ways in
 
 | | **`install.sh`** | **`launchd/` · `systemd/`** |

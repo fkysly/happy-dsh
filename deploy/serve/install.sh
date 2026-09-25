@@ -30,6 +30,21 @@
 #    (typically 0644), so pre-creating it is what makes (1) actually true.
 #
 # See README.md for the reasoning, and for how to read your URL back out.
+#
+# ── The two plugins this pre-installs ───────────────────────────────────────
+# A happy-dsh deployment is not much use without a way to find plugins, so two
+# are installed into the profile before the service is ever loaded:
+#
+#   dshmarket         the community plugin market (Settings → Plugin Market):
+#                     browse, search, one-click install, themes, updates.
+#   dsh-find-plugin   the same catalogue inside the conversation, so the agent
+#                     can search it and install what you ask for.
+#
+# Both are third-party npm packages (MIT, from github.com/dsh-market and
+# github.com/awesome-dsh-plugin), which is worth knowing before you accept the
+# default: they are not part of this repository, they update on their own
+# schedule, and the market can install further plugins from a curated registry.
+# `--no-default-plugins` skips both; `--plugin <spec>` adds your own.
 
 set -euo pipefail
 
@@ -43,8 +58,14 @@ WORKDIR="$HOME"
 SERVICE_PATH="${PATH}"
 TRUSTED_HOSTS=()
 PATCHES=()
+PLUGINS=()
+SKIP_DEFAULT_PLUGINS=0
 UNINSTALL=0
 PRINT_ONLY=0
+
+# Plugins installed into the profile before the service starts. See the header
+# for why these two, and what accepting them means.
+DEFAULT_PLUGINS=(dshmarket dsh-find-plugin)
 
 # How long the supervisor waits after SIGTERM before it SIGKILLs, in seconds.
 # One number, used for launchd's ExitTimeOut, systemd's TimeoutStopSec, and the
@@ -82,6 +103,14 @@ Options:
                       deploy/remote-access/overlays/remote-browser.yml when
                       the browser is not on this machine.
   --profile <name>    Profile to boot. Default: web
+  --plugin <spec>     Extra plugin to install into the profile, as pnpm takes
+                      it (`<name>`, `<name>@<version>`, `github:<owner>/<repo>`).
+                      Repeatable. These add to the defaults below.
+  --no-default-plugins
+                      Skip the plugins this installs into the profile by
+                      default — the community market (dshmarket) and the
+                      in-conversation plugin finder (dsh-find-plugin). Both
+                      are third-party packages; see the header of this file.
   --dsh <path>        The dsh executable. Default: `dsh` on PATH. A .js path
                       is run through node, so a repo checkout works:
                       --dsh ~/happy-dsh/apps/cli/lib/bin.js
@@ -145,6 +174,8 @@ while [ $# -gt 0 ]; do
     --patch)        [ $# -ge 2 ] || die "--patch needs a value";        PATCHES+=("$2");       shift 2 ;;
     --port)         [ $# -ge 2 ] || die "--port needs a value";         PORT="$2";             shift 2 ;;
     --profile)      [ $# -ge 2 ] || die "--profile needs a value";      PROFILE="$2";          shift 2 ;;
+    --plugin)       [ $# -ge 2 ] || die "--plugin needs a value";       PLUGINS+=("$2");       shift 2 ;;
+    --no-default-plugins) SKIP_DEFAULT_PLUGINS=1; shift ;;
     --dsh)          [ $# -ge 2 ] || die "--dsh needs a value";          DSH_BIN="$2";          shift 2 ;;
     --dsh-home)     [ $# -ge 2 ] || die "--dsh-home needs a value";     DSH_HOME_DIR="$2";     shift 2 ;;
     --workdir)      [ $# -ge 2 ] || die "--workdir needs a value";      WORKDIR="$2";          shift 2 ;;
@@ -219,6 +250,13 @@ case "$DSH_BIN" in
     ;;
   *) DSH_ARGV=("$DSH_BIN") ;;
 esac
+
+# How to *invoke* dsh, before the boot arguments are appended below. `plugin`
+# is its own launcher subcommand (`dsh plugin --profile <name> <pnpm args…>`),
+# so it needs this prefix rather than the boot command line — appending it to
+# DSH_ARGV after the profile and the app flags produces `… plugin …` handed to
+# the booted app, which rejects it.
+DSH_CMD=("${DSH_ARGV[@]}")
 
 # ── assemble the argument list ──────────────────────────────────────────────
 #
@@ -484,6 +522,42 @@ render() {
 if [ "$PRINT_ONLY" = 1 ]; then
   render
   exit 0
+fi
+
+# ── install the profile's plugins ───────────────────────────────────────────
+#
+# This runs BEFORE the unit is loaded, and that order is the point: `dsh plugin`
+# initializes a profile that does not exist yet from its shipped template
+# (apps/cli/src/plugin.ts), so a fresh `web` profile arrives with base + web-app
+# *and* these plugins in one boot instead of needing a second restart.
+#
+# Nothing here touches the profile's other dependencies — `add` appends — and
+# `--uninstall` deliberately leaves them, along with the rest of DSH_HOME.
+#
+# A failure warns rather than dying: the service is the deliverable, and a
+# machine that cannot reach the registry should still get one. Printing the
+# retry command is what keeps the default from going missing quietly.
+PLUGIN_SPECS=()
+if [ "$SKIP_DEFAULT_PLUGINS" != 1 ]; then
+  PLUGIN_SPECS+=("${DEFAULT_PLUGINS[@]}")
+fi
+if [ "${#PLUGINS[@]}" -gt 0 ]; then
+  PLUGIN_SPECS+=("${PLUGINS[@]}")
+fi
+
+if [ "${#PLUGIN_SPECS[@]}" -gt 0 ]; then
+  step "Installing ${#PLUGIN_SPECS[@]} plugin(s) into profile '$PROFILE'"
+  # DSH_HOME is passed explicitly: the unit gets it from its own environment
+  # (below), but this child is still the caller's, and `--dsh-home` has to mean
+  # the same thing to both or the service boots a profile nobody installed into.
+  if DSH_HOME="$DSH_HOME_DIR" "${DSH_CMD[@]}" plugin --profile "$PROFILE" add "${PLUGIN_SPECS[@]}"; then
+    note "installed: ${PLUGIN_SPECS[*]}"
+    note "they mount on the service's first start"
+  else
+    printf '\n  ⚠ the plugin install failed; the service is installed without them.\n'
+    printf '    Retry once the registry is reachable:\n\n'
+    printf '        %s plugin --profile %s add %s\n\n' "${DSH_CMD[*]}" "$PROFILE" "${PLUGIN_SPECS[*]}"
+  fi
 fi
 
 # ── install ─────────────────────────────────────────────────────────────────
