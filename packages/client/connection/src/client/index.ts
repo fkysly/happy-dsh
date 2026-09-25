@@ -186,6 +186,7 @@ interface ConnectionOwner {
   readonly source: ConnectionGenerationSource
   readonly controller: ConnectionController
   readonly stopNetworkWatch: () => void
+  readonly stopVisibilityWatch: () => void
 }
 
 interface BrowserNetworkTarget {
@@ -206,6 +207,41 @@ function watchBrowserNetwork(controller: ConnectionController): () => void {
   return () => {
     browser.removeEventListener('online', online)
     browser.removeEventListener('offline', offline)
+  }
+}
+
+interface BrowserVisibilityTarget {
+  readonly visibilityState?: string
+  addEventListener(type: 'visibilitychange', listener: () => void): void
+  removeEventListener(type: 'visibilitychange', listener: () => void): void
+}
+
+/**
+ * Reconnect when a page returns from a suspension long enough to have killed its
+ * stream. A suspended page has its timers frozen and can have its socket
+ * half-closed without an event, so returning to the page is the only signal that
+ * the stream may be gone; a brief switch away reconnects nothing.
+ * @param controller - the owning consumer's connect/reconnect loop.
+ * @param resumeAfterHiddenMs - hidden duration that makes a return reconnect.
+ * @returns disposer removing the visibility listener.
+ */
+function watchBrowserVisibility(controller: ConnectionController, resumeAfterHiddenMs: number): () => void {
+  const page = (globalThis as { readonly document?: BrowserVisibilityTarget }).document
+  if (page?.visibilityState === undefined) return () => {}
+  let hiddenAt: number | undefined
+  const changed = (): void => {
+    if (page.visibilityState === 'hidden') {
+      hiddenAt = Date.now()
+      return
+    }
+    const since = hiddenAt
+    hiddenAt = undefined
+    if (since === undefined || Date.now() - since < resumeAfterHiddenMs) return
+    controller.reconnect()
+  }
+  page.addEventListener('visibilitychange', changed)
+  return () => {
+    page.removeEventListener('visibilitychange', changed)
   }
 }
 
@@ -255,6 +291,7 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
     if (owner !== current) return
     owner = undefined
     current.stopNetworkWatch()
+    current.stopVisibilityWatch()
     current.controller.stop()
     publishGeneration(undefined)
     publishState(undefined)
@@ -298,6 +335,7 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
       if (source === undefined) throw new Error('connection: no generation source is registered')
       const token = {}
       const ownsGeneration = (): boolean => owner?.token === token
+      const resolved = resolveConnectionConfig({ ...recovery, ...config })
       const controller = new ConnectionController(source, {
         ...sinks,
         onConnected: (host) => {
@@ -314,8 +352,14 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
           publishState(state)
           sinks.onStateChange?.(state)
         },
-      }, { ...recovery, ...config })
-      const current = { token, source, controller, stopNetworkWatch: watchBrowserNetwork(controller) }
+      }, resolved)
+      const current = {
+        token,
+        source,
+        controller,
+        stopNetworkWatch: watchBrowserNetwork(controller),
+        stopVisibilityWatch: watchBrowserVisibility(controller, resolved.resumeAfterHiddenMs),
+      }
       owner = current
       controller.start()
       return {
