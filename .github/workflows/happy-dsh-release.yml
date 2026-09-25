@@ -248,7 +248,8 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs['dry-run'] == true
         env:
           TAG: ${{ steps.version.outputs.tag }}
-        run: echo "Dry run: no release was created for $TAG" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "Dry run: no release was created for $TAG" >> "$GITHUB_STEP_SUMMARY"
 
       # --generate-notes is what makes the changelog come from the merged pull
       # requests rather than from commit subjects; the notes file is prepended.
