@@ -35,6 +35,15 @@ class BrowserNetworkProbe extends EventTarget {
   }
 }
 
+class BrowserDocumentProbe extends EventTarget {
+  visibilityState = 'visible'
+
+  setVisible(visible: boolean): void {
+    this.visibilityState = visible ? 'visible' : 'hidden'
+    this.dispatchEvent(new Event('visibilitychange'))
+  }
+}
+
 class GenerationProbe {
   private readonly active = new Set<() => void>()
 
@@ -62,6 +71,19 @@ function installGeneration(handle: ConnectionHandle): GenerationProbe {
   const probe = new GenerationProbe()
   handle.registerGenerationSource(probe.source)
   return probe
+}
+
+/** A ready generation that stays open until aborted, counting every attempt. */
+function countingGeneration(): { source: ConnectionGenerationSource; attempts: () => number } {
+  let attempts = 0
+  return {
+    attempts: () => attempts,
+    source: (signal, ready) => new Promise<void>((resolve) => {
+      attempts++
+      ready({ home: '/h' })
+      signal.addEventListener('abort', () => { resolve() }, { once: true })
+    }),
+  }
 }
 
 async function mount(): Promise<ConnectionHandle> {
@@ -271,12 +293,7 @@ describe('connection client apply', () => {
     vi.stubGlobal('window', browser)
     ;(globalThis as Win).location = { hostname: 'localhost' }
     const handle = await mount()
-    let calls = 0
-    const source: ConnectionGenerationSource = (signal, ready) => new Promise<void>((resolve) => {
-      calls++
-      ready({ home: '/h' })
-      signal.addEventListener('abort', () => { resolve() }, { once: true })
-    })
+    const { source, attempts } = countingGeneration()
     handle.registerGenerationSource(source)
     const states: Array<ConnectionState | undefined> = []
     const unsubscribe = handle.state.subscribe(() => { states.push(handle.state.getSnapshot()) })
@@ -289,25 +306,75 @@ describe('connection client apply', () => {
     try {
       await vi.advanceTimersByTimeAsync(0)
       expect(handle.state.getSnapshot()).toBe('connected')
-      expect(calls).toBe(1)
+      expect(attempts()).toBe(1)
 
       browser.setOnline(false)
       expect(handle.state.getSnapshot()).toBe('disconnected')
       await vi.advanceTimersByTimeAsync(10_000)
-      expect(calls).toBe(1)
+      expect(attempts()).toBe(1)
 
       browser.setOnline(true)
       expect(handle.state.getSnapshot()).toBe('connecting')
       await vi.advanceTimersByTimeAsync(49)
-      expect(calls).toBe(1)
+      expect(attempts()).toBe(1)
       await vi.advanceTimersByTimeAsync(1)
-      expect(calls).toBe(2)
+      expect(attempts()).toBe(2)
       expect(handle.state.getSnapshot()).toBe('connected')
       expect(states).toEqual(['connected', 'disconnected', 'connecting', 'connected'])
     } finally {
       unsubscribe()
       loop.stop()
       randomSpy.mockRestore()
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('resumes the connection when a suspended page becomes visible again', async () => {
+    vi.useFakeTimers()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const browser = new BrowserNetworkProbe()
+    const page = new BrowserDocumentProbe()
+    vi.stubGlobal('window', browser)
+    vi.stubGlobal('document', page)
+    ;(globalThis as Win).location = { hostname: 'localhost' }
+    const handle = await mount()
+    const { source, attempts } = countingGeneration()
+    handle.registerGenerationSource(source)
+    const requested = vi.fn()
+    const loop = handle.start({ onReconnectRequested: requested }, {
+      backoffBaseMs: 10,
+      backoffFactor: 2,
+      backoffMaxMs: 80,
+      generationReadyTimeoutMs: 500,
+    })
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(handle.state.getSnapshot()).toBe('connected')
+      expect(attempts()).toBe(1)
+
+      // Suspended: iOS freezes timers and the socket goes half-open, so no event
+      // ever reports the loss. Nothing may churn while the page stays hidden.
+      page.setVisible(false)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(attempts()).toBe(1)
+      expect(requested).not.toHaveBeenCalled()
+
+      // Returning to the page is the only signal that the stream may be gone.
+      page.setVisible(true)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(attempts()).toBe(2)
+      expect(requested).toHaveBeenCalledOnce()
+      expect(handle.state.getSnapshot()).toBe('connected')
+
+      // A brief switch away leaves the stream intact, so the page does not churn.
+      page.setVisible(false)
+      await vi.advanceTimersByTimeAsync(1_000)
+      page.setVisible(true)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(attempts()).toBe(2)
+      expect(requested).toHaveBeenCalledOnce()
+    } finally {
+      loop.stop()
       warnSpy.mockRestore()
     }
   })

@@ -204,6 +204,7 @@ describe('connection node half', () => {
           kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: {
             backoffBaseMs: 500, backoffFactor: 2, backoffMaxMs: 10_000,
             generationReadyWarnMs: 3_000, generationReadyTimeoutMs: 25_000,
+            resumeAfterHiddenMs: 30_000,
           },
         },
         // This deployment names no trusted authority, so a served page keeps

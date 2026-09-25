@@ -16,6 +16,13 @@ export interface ConnectionRecoveryConfig {
   generationReadyWarnMs?: number
   /** Deadline in ms for readiness, including physical connection setup. Default: 15000. */
   generationReadyTimeoutMs?: number
+  /**
+   * Hidden-page duration in ms after which returning to the page reconnects.
+   * A page hidden at least this long may have had its stream half-closed while
+   * the browser froze its timers, which leaves no event to report the loss.
+   * Default: 30000.
+   */
+  resumeAfterHiddenMs?: number
 }
 
 // Browsers and Node share this maximum signed 32-bit timer delay.
@@ -28,6 +35,7 @@ export const ConnectionRecoveryConfigSchema: z<ConnectionRecoveryConfig> = z.obj
   backoffMaxMs: z.natural().min(1).max(MAX_TIMER_MS).default(10_000),
   generationReadyWarnMs: z.natural().min(1).max(MAX_TIMER_MS).default(3_000),
   generationReadyTimeoutMs: z.natural().min(1).max(MAX_TIMER_MS).default(15_000),
+  resumeAfterHiddenMs: z.natural().min(1).max(MAX_TIMER_MS).default(30_000),
 })
 
 /**

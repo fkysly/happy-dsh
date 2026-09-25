@@ -483,6 +483,13 @@ export interface ConnectionRecoveryConfig {
   generationReadyWarnMs?: number
   /** Deadline in ms for readiness, including physical connection setup. Default: 15000. */
   generationReadyTimeoutMs?: number
+  /**
+   * Hidden-page duration in ms after which returning to the page reconnects.
+   * A page hidden at least this long may have had its stream half-closed while
+   * the browser froze its timers, which leaves no event to report the loss.
+   * Default: 30000.
+   */
+  resumeAfterHiddenMs?: number
 }
 ```
 
