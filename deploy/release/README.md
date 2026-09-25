@@ -151,12 +151,13 @@ way to ship the wrong thing:
 3. **The commit is not on `master`.** An ancestor test, so a tag on a side
    branch or an unpushed commit cannot publish.
 4. **The gates did not all pass on `master` for that commit.** This is the one
-   that matters. The workflow reads the commit's check runs, keeps the ones
-   that ran on `master`, and requires a successful run of each of the nine
+   that matters. The workflow asks for the gate workflow's *push* runs for that
+   commit on `master` — not for the commit's check runs, which say nothing about
+   which branch a run belonged to — and requires one of them to report all nine
    names branch protection requires. A tag on a commit that only ever passed on
    a feature branch is refused.
 
-Check runs are retained for 90 days, so re-releasing an older commit cannot be
+Workflow runs are kept for 90 days, so re-releasing an older commit cannot be
 proven this way. `allow-ungated` is the audited override for that case; it is
 never the default, and it is loud in the log when used.
 
