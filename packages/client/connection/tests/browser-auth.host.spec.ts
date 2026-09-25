@@ -55,8 +55,9 @@ function createAuth(
   store: RecordCredentials,
   maxAgeDays = 30,
   processOwner: object = {},
+  sessionRequired = true,
 ): Promise<BrowserAuth> {
-  return BrowserAuth.create(processOwner, credentials(store), maxAgeDays)
+  return BrowserAuth.create(processOwner, credentials(store), maxAgeDays, sessionRequired)
 }
 
 function request(url: string, authority = '127.0.0.1:3080', init?: {
@@ -188,6 +189,25 @@ describe('BrowserAuth', () => {
         ? undefined
         : 'dsh web authentication required; reopen the URL printed by dsh web.\n')
     }
+  })
+
+  it('serves the index and admits every request when no session is required', async () => {
+    const store = new RecordCredentials()
+    const auth = await createAuth(store, 30, {}, false)
+    const clean = 'http://127.0.0.1:3080/'
+    expect(auth.authenticatedUrl(clean)).toBe(clean)
+
+    const served = response()
+    expect(auth.authorizeIndex(request('/?token=stale'), served.value)).toBe(true)
+    expect(served.state).toEqual({})
+    expect(auth.admits(request('/'))).toBe(true)
+    expect(auth.admits({ headers: new Headers() })).toBe(true)
+
+    // The same store under the default requirement still refuses, so the mode is
+    // the only difference between these two instances.
+    const required = await createAuth(store)
+    expect(required.admits(request('/'))).toBe(false)
+    expect(required.admits(request('/', '127.0.0.1:3080', { cookie: exchange(required).cookie }))).toBe(true)
   })
 
   it('rejects tampering, expiry, future issuance, and a longer lifetime than configured', async () => {

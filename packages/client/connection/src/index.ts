@@ -103,6 +103,16 @@ export interface ConnectionConfig {
   trustedHosts?: string[]
   /** Absolute browser-session lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
+  /**
+   * Whether the browser must exchange the process launch token for a session
+   * cookie before the UI or any RPC runs. Default: true.
+   *
+   * Set false only on a network whose reachable clients are all trusted: the Web
+   * UI drives tool-capable Sessions with this process's own authority, so every
+   * client that reaches the port can run commands as this user. The Host/Origin
+   * fence still applies, so the configured authorities remain the reachable set.
+   */
+  requireBrowserAuth?: boolean
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
   /**
@@ -123,13 +133,14 @@ export const Config: z<ConnectionConfig> = z.object({
   trustedHosts: z.array(String).default([]),
   remoteWrites: z.boolean(),
   cookieMaxAgeDays: z.natural().min(1).default(30),
+  requireBrowserAuth: z.boolean().default(true),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
 
 /**
  * Provides carrier-neutral RPC and Fetch registries. When `webServer` is
  * present, the plugin also mounts the `/api` browser transport with Host/Origin
- * checks and persistent browser authentication.
+ * checks and, unless the config waives it, persistent browser authentication.
  * @param ctx - Host plugin context.
  * @param config - resolved plugin config (schema defaults applied).
  */
@@ -138,6 +149,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // The Loader resolves schema defaults; hand-built test contexts may pass none.
   const trustedHosts = config?.trustedHosts ?? []
   const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
+  const requireBrowserAuth = config?.requireBrowserAuth ?? true
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   const remoteWrites = config?.remoteWrites ?? trustedHosts.length > 0
   // Config boundary: a malformed entry fails the load loudly here rather than
@@ -147,7 +159,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays),
+    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, requireBrowserAuth),
   )
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)

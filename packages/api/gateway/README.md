@@ -100,4 +100,4 @@ None.
 
 **Runtime invariant:** No companion is published. Host calls re-read authoritative Cordis and Typert state, while Client methods, descriptors, and `$on` subscriptions mutate in one owned effect.
 
-The ./stream-protocol export supplies the shared Remote stream framing and parser to native Desktop callers. These callers use the same authenticated WebSocket endpoint as the browser client.
+The ./stream-protocol export supplies the shared Remote stream framing and parser to native Desktop callers. These callers use the same WebSocket endpoint as the browser client, admitted by the same trust fence and, when the deployment requires a session, the same browser authentication.

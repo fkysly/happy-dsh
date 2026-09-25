@@ -22,6 +22,8 @@ The in-page Web Worker preview exposes no network socket. Its page-owned `postMe
 
 The shipped CLI continues to reject `--host 0.0.0.0`. Authentication does not imply supported network deployment, TLS, forwarding-header interpretation, or proxy configuration.
 
+Extended by [optional browser authentication](2026-09-25-optional-browser-authentication.md), which makes this session requirement a per-deployment choice through `requireBrowserAuth`. The default is unchanged, so the contract above remains what every deployment gets unless it states otherwise.
+
 ## Verification
 
 Unit coverage pins process-token retention across Connection reloads, one secret load per activation, synchronous verification without credential-provider reads, cookie attributes, HMAC and payload validation, authority and lifetime checks, record deletion taking effect on the next activation, invalid durable records, and cleanup of obsolete token URLs backed by valid cookies. Host transport suites pin uniform 401/403 behavior for generic RPC, Typert Remote HTTP, exact Fetch routes, and WebSocket upgrade paths. The frontend real-composition test boots credentials, Connection, webserver, and static serving through Loader and proves token exchange before index reads while static assets remain public. Packed-worker tests prove portable cookie encoding and worker-local retry for both authentication and trust rejection. A real-CLI test starts `dsh web` twice on one port with a temporary `DSH_HOME`, proves that forged `Host: localhost` is unauthenticated, calls `settings/describe` with the exchanged cookie, observes a new process token, and reuses the old cookie after restart.

@@ -443,6 +443,16 @@ export interface ConnectionConfig {
   trustedHosts?: string[]
   /** Absolute browser-session lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
+  /**
+   * Whether the browser must exchange the process launch token for a session
+   * cookie before the UI or any RPC runs. Default: true.
+   *
+   * Set false only on a network whose reachable clients are all trusted: the Web
+   * UI drives tool-capable Sessions with this process's own authority, so every
+   * client that reaches the port can run commands as this user. The Host/Origin
+   * fence still applies, so the configured authorities remain the reachable set.
+   */
+  requireBrowserAuth?: boolean
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
   /**
@@ -1313,7 +1323,7 @@ export interface Config {
 }
 ```
 
-来源： [`packages/host/frontend-static/src/index.ts:30`](../packages/host/frontend-static/src/index.ts)
+来源： [`packages/host/frontend-static/src/index.ts:31`](../packages/host/frontend-static/src/index.ts)
 
 <a id="deepseek-aidsh-host-open-in-app"></a>
 
@@ -1344,7 +1354,7 @@ export interface Config {
 }
 ```
 
-来源： [`packages/host/open-in-app/src/index.ts:50`](../packages/host/open-in-app/src/index.ts)
+来源： [`packages/host/open-in-app/src/index.ts:51`](../packages/host/open-in-app/src/index.ts)
 
 <a id="deepseek-aidsh-host-product-telemetry-otel"></a>
 
