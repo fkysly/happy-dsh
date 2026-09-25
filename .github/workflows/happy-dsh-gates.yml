@@ -25,12 +25,23 @@
 # press. One of its 145 files is excluded because a single assertion in it
 # cannot hold still; the comment on that job records what was measured.
 #
+# This file also owns the fork's pull-request lane. Eight upstream workflows
+# fire on `pull_request` — ci.yml queues forever on labels no hosted runner
+# carries, build-preview-cloudflare.yml cannot find its four secrets, the two
+# issue bots and the review-weighting pair police a repository this fork does
+# not run. They are disabled on the fork's side (see deploy/release/README.md),
+# which leaves every required check on a pull request owned by this file. All
+# nine run on `pull_request` exactly as they run on a push, because the checks
+# requested by branch protection are these job names.
+#
 # The fork is public, so standard GitHub-hosted runners are not billed.
 
 name: happy-dsh gates
 
 on:
   push:
+    branches: [master]
+  pull_request:
     branches: [master]
   workflow_dispatch:
 
@@ -68,9 +79,16 @@ jobs:
       - name: Run static gates
         env:
           # The archived-notes gate compares the frozen archive against the
-          # previous tip. A manual run has no previous tip, so fall back to HEAD.
-          DSH_ARCHIVE_BASE_REF: ${{ github.event.before || 'HEAD' }}
+          # previous tip. On a pull request that tip is the base the branch
+          # forked from; on a push it is the pre-push tip; a manual run has
+          # neither, so fall back to HEAD.
+          DSH_ARCHIVE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
         run: pnpm run check:ci:static
+      # The fork's own version line, which no upstream gate knows about. Its own
+      # step rather than a gate argument: it is one file, and a failure here
+      # should read as the version file being wrong, not as the aggregate.
+      - name: Check the fork version file
+        run: pnpm run happy-dsh:version check
 
   tests:
     name: unit tests with coverage

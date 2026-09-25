@@ -31,6 +31,17 @@ const CLIENT_VERSION_VARIABLE = 'DSH_CLIENT_VERSION'
 /** Repository-relative path of the complete client build record. */
 export const CLIENT_BUILD_RECORD_PATH = '.dsh-build/client-build-environment.json'
 
+/**
+ * Repository-relative path of the fork-owned release version.
+ *
+ * Upstream's version is the root manifest's and is propagated to every one of
+ * their manifests by `pnpm run release:dsh`, so this fork publishes its own
+ * line from one file instead of colliding with every upstream version bump.
+ * A checkout without the file — upstream's own tree, and every test fixture —
+ * falls back to the manifest version.
+ */
+export const DISTRIBUTION_VERSION_PATH = 'happy-dsh.version'
+
 const CLIENT_BUILD_RECORD_FORMAT = 1
 const CLIENT_ARTIFACT_PATTERNS = [
   'apps/web/dist/**/*',
@@ -84,6 +95,41 @@ export function repositoryVersion(root: string): string {
 }
 
 /**
+ * Resolve the fork's own release version, when this checkout carries one.
+ *
+ * Reads `DISTRIBUTION_VERSION_PATH` in the shape `0.1.0` or `0.1.0-dev.2`;
+ * `scripts/happy-dsh/version.ts` owns writing it and knows the arithmetic.
+ *
+ * @param root - repository root that may carry the fork version file.
+ * @returns the fork version, or undefined when the file is absent.
+ */
+export function distributionVersion(root: string): string | undefined {
+  const path = resolve(root, DISTRIBUTION_VERSION_PATH)
+  if (!existsSync(path)) return undefined
+  const value = readFileSync(path, 'utf8').trim()
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value)) {
+    throw new Error(`${DISTRIBUTION_VERSION_PATH} has an invalid version ${JSON.stringify(value)}`)
+  }
+  return value
+}
+
+/**
+ * The version every artifact of this checkout reports.
+ *
+ * Both profiles carry it. `official` names the artifact *configuration* —
+ * upstream's title and profile marker — while the commit hash it already
+ * embeds is this fork's, so leaving the version on dsh's number would name a
+ * release this tree is not. Keeping one reader for both also keeps the record
+ * and every consumer that recomputes it in agreement.
+ *
+ * @param root - repository root.
+ * @returns the fork version, or the manifest version without a fork version file.
+ */
+function artifactVersion(root: string): string {
+  return distributionVersion(root) ?? repositoryVersion(root)
+}
+
+/**
  * Read whether Git reports any staged, unstaged, untracked, or submodule change.
  * @param root - repository root whose worktree is inspected.
  * @returns true or false inside a Git worktree; undefined without Git metadata.
@@ -128,12 +174,17 @@ export function repositoryClientBuildEnvironment(
     ...inherited,
     DSH_CLIENT_COMMIT_HASH: repositoryCommitHash(root, environment),
     ...(dirty === true ? { DSH_CLIENT_GIT_DIRTY: 'true' } : {}),
-    DSH_CLIENT_VERSION: repositoryVersion(root),
+    DSH_CLIENT_VERSION: artifactVersion(root),
   }
 }
 
 /**
  * Resolve the exact public values required by an official build at one commit.
+ *
+ * The version is the fork's own when `DISTRIBUTION_VERSION_PATH` exists, which
+ * is the same value the default profile carries: the record this produces gets
+ * compared against this function's output, so the two must not diverge.
+ *
  * @param root - repository root whose HEAD must match the built source.
  * @param environment - optional explicit commit source for non-Git build environments.
  * @returns complete official client environment.
@@ -144,7 +195,7 @@ export function officialClientBuildEnvironment(
 ): Readonly<Record<`DSH_CLIENT_${string}`, string>> {
   return {
     DSH_CLIENT_COMMIT_HASH: repositoryCommitHash(root, environment),
-    DSH_CLIENT_VERSION: repositoryVersion(root),
+    DSH_CLIENT_VERSION: artifactVersion(root),
     ...OFFICIAL_CLIENT_BUILD_ENVIRONMENT,
   }
 }
