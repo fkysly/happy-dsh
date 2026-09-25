@@ -82,7 +82,15 @@ install_output="$(DSH_HOME="$DSH_HOME_DIR" node "$DSH_BIN" plugin --profile "$PR
 install_status=$?
 if [ $install_status -ne 0 ]; then
   printf '%s\n' "$install_output" | tail -20
-  die "the pins do not install (exit $install_status). A release must not ship these specs."
+  # Which registry answered is the first thing to know here: a pin that exists
+  # upstream can be missing from a mirror for a while, and that reads as "the
+  # pins do not install" when it is really "this mirror has not seen it yet".
+  if [ -n "$REGISTRY" ]; then
+    die "the pins do not install (exit $install_status) from $REGISTRY. A release must not ship these specs."
+  fi
+  die "the pins do not install (exit $install_status) from the default registry. A release must not ship these specs.
+    A pin this new may simply not have reached a mirror yet:
+        bash deploy/release/preinstall-smoke.sh --registry https://registry.npmjs.org"
 fi
 printf '%s\n' "$install_output" | tail -3
 
