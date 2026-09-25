@@ -297,6 +297,26 @@ describe('connection node half', () => {
     await dispose()
   })
 
+  it('admits a trusted authority without a session when browser authentication is disabled', async () => {
+    const { routes, dispose } = await mounted({
+      trustedHosts: ['harness.example'],
+      requireBrowserAuth: false,
+    })
+    const allowed = fakeResponse()
+    await routes[0]!.handler(fakeRequest({ host: 'harness.example' }, `${API_PATH}/skills/list`), allowed.response)
+    expect([allowed.state.status, allowed.state.body]).toEqual([404, 'not found'])
+
+    // The trust fence is a separate layer and keeps refusing: disabling the
+    // session requirement narrows nothing about which authorities are served.
+    const refused = fakeResponse()
+    await routes[0]!.handler(fakeRequest({
+      host: 'harness.example.evil', origin: 'http://harness.example.evil', 'sec-fetch-site': 'same-origin',
+    }), refused.response)
+    expect(refused.state.status).toBe(403)
+    expect(refused.state.body).toBe('forbidden')
+    await dispose()
+  })
+
   it('requires the same browser session for every method on every trusted authority', async () => {
     const { routes, connection, dispose } = await mounted({ trustedHosts: ['harness.example'] })
     const methods = [

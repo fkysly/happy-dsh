@@ -206,8 +206,8 @@ export interface HostConnectionHandle {
   createSharedFetchHandler(channel: '/api'): ConnectionFetchHandler
 
   /**
-   * Apply Connection's Host/Origin checks and browser authentication to
-   * another Web route.
+   * Apply Connection's Host/Origin checks to another Web route, then browser
+   * authentication when the deployment requires a session.
    * @param request - request headers from the HTTP or upgrade request.
    * @returns rejection status, or undefined when the route may accept the request.
    */
@@ -222,7 +222,8 @@ export interface HostConnectionHandle {
   admit(request: ConnectionTrustRequest): PeerAdmission
 
   /**
-   * Authenticate one frontend index request, owning a token redirect or 401.
+   * Authenticate one frontend index request, owning a token redirect or 401; a
+   * deployment that requires no session serves the index directly.
    * @param request - root or configured-index HTTP request.
    * @param response - response owned when the result is false.
    * @returns true only when the frontend may serve index.html.
@@ -230,9 +231,10 @@ export interface HostConnectionHandle {
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean
 
   /**
-   * Add the fresh process token to an ordinary Web application URL.
+   * Add the fresh process token to an ordinary Web application URL, leaving the
+   * URL clean when the deployment requires no session.
    * @param baseUrl - clean application URL whose authority and mount are preserved.
-   * @returns tokenized URL for initial login; a mount proxy strips its prefix before {@link authorizeIndex}.
+   * @returns tokenized URL for initial login, or `baseUrl` unchanged; a mount proxy strips its prefix before {@link authorizeIndex}.
    */
   authenticatedUrl(baseUrl: string): string
 }

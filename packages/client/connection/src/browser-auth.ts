@@ -178,7 +178,8 @@ async function initializeSecret(credentials: CredentialProvider): Promise<Buffer
 }
 
 /**
- * Process launch-token exchange and persistent signed-cookie verification.
+ * Process launch-token exchange and persistent signed-cookie verification, or
+ * admission without either when the deployment requires no session.
  * Connection loads the credential provider's signing secret during activation
  * and retains it for synchronous request authentication.
  */
@@ -190,6 +191,7 @@ export class BrowserAuth {
     processOwner: object,
     private readonly secret: Buffer,
     maxAgeDays: number,
+    private readonly sessionRequired: boolean,
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
@@ -205,37 +207,59 @@ export class BrowserAuth {
    * @param processOwner - root application context retaining one token across Connection reloads.
    * @param credentials - persistent credential provider for the Web profile.
    * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
+   * @param sessionRequired - whether a browser session is required before serving the UI.
    * @returns initialized authentication owner with the process owner's launch token.
    */
   static async create(
     processOwner: object,
     credentials: CredentialProvider,
     maxAgeDays: number,
+    sessionRequired: boolean,
   ): Promise<BrowserAuth> {
-    return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays)
+    return new BrowserAuth(
+      processOwner,
+      await initializeSecret(credentials),
+      maxAgeDays,
+      sessionRequired,
+    )
   }
 
   /**
-   * Add this process's launch token to the caller's application URL.
+   * Add this process's launch token to the caller's application URL, or leave the
+   * URL clean when no session is required.
    * @param baseUrl - clean browser URL whose authority and mount are preserved.
    * @returns the same URL carrying the process token as its sole authentication input.
    */
   authenticatedUrl(baseUrl: string): string {
+    if (!this.sessionRequired) return baseUrl
     const url = new URL(baseUrl)
     url.searchParams.set(TOKEN_QUERY, this.launchToken)
     return url.href
   }
 
   /**
+   * Decide whether a request may proceed. A deployment that does not require a
+   * browser session admits every request the trust fence already accepted;
+   * otherwise the request needs a valid authority-bound cookie.
+   * @param request - request headers carrying Host and Cookie.
+   * @returns true only for an admitted request.
+   */
+  admits(request: ConnectionTrustRequest): boolean {
+    return this.sessionRequired ? this.isAuthenticated(request) : true
+  }
+
+  /**
    * Authenticate an index request. A valid root query token mints the cookie
    * and redirects to the directory-relative clean `./`; a valid cookie lets
    * the caller serve the index; every other request receives the same minimal
-   * 401 response.
+   * 401 response. A deployment that does not require a browser session serves
+   * the index directly, ignoring any token the URL still carries.
    * @param req - incoming root or configured-index request.
    * @param res - response owned when this method returns false.
    * @returns true only when the caller may serve index.html.
    */
   authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
+    if (!this.sessionRequired) return true
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
     const tokens = url.searchParams.getAll(TOKEN_QUERY)

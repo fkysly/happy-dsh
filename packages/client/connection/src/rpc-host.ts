@@ -100,10 +100,10 @@ export class HostConnectionService extends Service implements HostConnectionHand
     }
   }
 
-  /** Apply the configured Host/Origin fence, then browser authentication. */
+  /** Apply the configured Host/Origin fence, then browser authentication when a session is required. */
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
     if (!isTrustedApiRequest(request, this.trustedHosts)) return 403
-    return this.browserAuth.isAuthenticated(request) ? undefined : 401
+    return this.browserAuth.admits(request) ? undefined : 401
   }
 
   /** A request that passes the fence and authentication speaks for the operator. */
@@ -112,12 +112,15 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return rejection === undefined ? { peer: this.operator } : { rejection }
   }
 
-  /** Authenticate an index request through the process-token exchange or cookie. */
+  /**
+   * Authenticate an index request through the process-token exchange or cookie,
+   * or serve it directly when a deployment requires no session.
+   */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
     return this.browserAuth.authorizeIndex(request, response)
   }
 
-  /** Add this process's launch token to the clean application URL. */
+  /** Add this process's launch token to the clean application URL, or leave it clean when no session is required. */
   authenticatedUrl(baseUrl: string): string {
     return this.browserAuth.authenticatedUrl(baseUrl)
   }

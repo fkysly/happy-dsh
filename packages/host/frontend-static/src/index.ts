@@ -4,8 +4,9 @@
  * entry points. A readable index renders at the dist root and configured index
  * path; missing paths return 404, traversal outside the dist root is 403,
  * unknown extensions ship as octet-stream, and non-GET/HEAD is 405. Every
- * index response first passes Connection's browser authentication, then the
- * webserver's index render (structured injection rows, then raw taps).
+ * index response first passes Connection's browser authentication unless the
+ * deployment waives it, then the webserver's index render (structured
+ * injection rows, then raw taps).
  * Non-index assets stay public. The dist location is workspace knowledge of
  * the composing application, so `distIndex` is typically supplied through a
  * `!!js` expression, never hardcoded by a deployment.

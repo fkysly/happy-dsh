@@ -734,7 +734,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection',
-        description: 'Apply Connection\'s Host/Origin checks and browser authentication to another Web route.',
+        description: 'Apply Connection\'s Host/Origin checks to another Web route, then browser authentication when the deployment requires a session.',
         parameters: [{ name: 'request', description: 'request headers from the HTTP or upgrade request.' }],
         returns: 'rejection status, or undefined when the route may accept the request.',
       },
@@ -746,15 +746,15 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean',
-        description: 'Authenticate one frontend index request, owning a token redirect or 401.',
+        description: 'Authenticate one frontend index request, owning a token redirect or 401; a deployment that requires no session serves the index directly.',
         parameters: [{ name: 'request', description: 'root or configured-index HTTP request.' }, { name: 'response', description: 'response owned when the result is false.' }],
         returns: 'true only when the frontend may serve index.html.',
       },
       {
         signature: 'authenticatedUrl(baseUrl: string): string',
-        description: 'Add the fresh process token to an ordinary Web application URL.',
+        description: 'Add the fresh process token to an ordinary Web application URL, leaving the URL clean when the deployment requires no session.',
         parameters: [{ name: 'baseUrl', description: 'clean application URL whose authority and mount are preserved.' }],
-        returns: 'tokenized URL for initial login; a mount proxy strips its prefix before {@link authorizeIndex}.',
+        returns: 'tokenized URL for initial login, or `baseUrl` unchanged; a mount proxy strips its prefix before {@link authorizeIndex}.',
       },
     ],
   },
