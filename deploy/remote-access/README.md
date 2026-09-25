@@ -214,7 +214,7 @@ signature of this.
 
 ```yaml
 rules:            # or your rules profile's `prepend:`
-  - DOMAIN-SUFFIX,dsh.dev,回家     # your tailscale outbound's group
+  - DOMAIN-SUFFIX,dsh.dev,<tailscale-group>   # your tailscale outbound's group
 ```
 
 **2. A hosts entry, because fake-ip is not an address.**
@@ -227,7 +227,7 @@ cannot help.
 
 ```yaml
 hosts:
-  dsh.dev: <tailnet-ip>     # the tailnet IP, not the LAN IP: no subnet
+  dsh.dev: <tailnet-ip>       # the tailnet IP, not the LAN IP: no subnet
                               # route advertisement required
 dns:
   use-hosts: true             # do not rely on the default
@@ -246,6 +246,75 @@ curl -s -o /dev/null -w '%{http_code}\n' http://dsh.dev/     # expect 308 -> htt
 
 A 401 is success here: the fence accepted the authority and no session cookie
 was presented. `000` means the connection never arrived.
+
+### The same settings on iOS, where the client is Shadowrocket
+
+Shadowrocket carries its own Tailscale outbound, so a phone or tablet joins the
+tailnet the same way and meets the same three problems. It has one constraint a
+desktop client does not: iOS runs a single active tunnel, so the proxy client and
+the Tailscale app cannot both be connected — which is why the tailnet has to live
+inside the proxy client at all.
+
+Where C2 writes `rules:` and `hosts:` into a config file, iOS writes them into a
+**module** (配置 → 模块), which outranks the active profile and survives a
+subscription update:
+
+```
+[Host]
+dsh.dev = <tailnet-ip>
+
+[General]
+use-local-host-item-for-proxy = true
+
+[Rule]
+DOMAIN-SUFFIX,dsh.dev,DIRECT
+```
+
+- `dsh.dev = <tailnet-ip>` maps the name to that address and skips DNS. It is
+  **not** the same statement as `dsh.dev = server:<tailnet-ip>`, which asks
+  that address to resolve the name. The difference is one token and the second
+  form does nothing here.
+- `use-local-host-item-for-proxy = true` is mandatory. Without it, a proxied
+  destination is resolved on the remote node and the mapping is ignored.
+- `DOMAIN-SUFFIX,…,DIRECT` is equally mandatory, and it is the half that is easy
+  to leave out. A host mapping alone still leaves a tailnet destination to the
+  catch-all, which hands it to a proxy node that cannot reach it: the page loads
+  forever and the tunnel carries **no packets at all**. `DIRECT` sends the
+  connection from the device, where the tailnet route already works.
+
+Then set 全局路由 to 配置 and toggle the client's main switch so the tunnel
+rebuilds: a module contributes rules, and the global 代理 and 直连 modes run no
+rules at all, so it cannot apply under them. With all of it in place, a
+capture on the tunnel shows the ClientHello arriving with **zero DNS queries**,
+because the mapping is local and nothing is resolved.
+
+Two more steps are per device and are not part of the module.
+
+**Trust the CA in two stages.** iOS imports a `.crt` as a profile (设置 → 通用 →
+VPN与设备管理) and does **not** trust it until trust is enabled separately
+(设置 → 通用 → 关于本机 → 证书信任设置). Installing alone leaves exactly the state
+that makes Safari report the connection is not private, which reads like a wrong
+certificate. iCloud Drive distributes the file; it does not grant trust.
+
+**Do not retype the launch token.** It is 43 characters, and a typo produces the
+same `dsh web authentication required` 401 as a mismatched authority, so the
+response text cannot tell the two apart. Share the URL from a device that already
+has a session. To separate the causes, capture the loopback hop, where the
+request line and status are clear text:
+
+```sh
+sudo tcpdump -i lo0 -n -A 'tcp port 3080'
+```
+
+The mapping above names a tailnet address, so it holds only while the tunnel is
+up. The same device with the client disconnected resolves through the gateway and
+needs no module — only the CA. A device that never leaves the LAN should skip the
+module entirely, since a mapping to a tailnet address makes the name fail there
+rather than pass through.
+
+The `http://dsh.dev/` check above works because `curl` ignores the HSTS preload
+list. Browsers do not, and `.dev` is on it, so a browser can never exercise the
+plaintext hop: the request is upgraded before it leaves the device.
 
 ---
 
@@ -393,4 +462,5 @@ every option.
 | Add another authority | repeat `--trusted-host`, or list them in an overlay |
 | See the composed configuration | `dsh --profile web --dump-config` |
 | Diagnose 403 on everything | the proxy rewrote `Host` |
+| Diagnose an iOS 401 after a working desktop login | the 43-character token was retyped — share the URL instead (Recipe C2) |
 | Diagnose a GUI stuck reconnecting | the proxy is not forwarding the WebSocket upgrade |

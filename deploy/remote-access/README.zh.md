@@ -151,7 +151,7 @@ dsh web --no-open --trusted-host <machine>.<tailnet>.ts.net
 
 ```yaml
 rules:            # or your rules profile's `prepend:`
-  - DOMAIN-SUFFIX,dsh.dev,回家     # your tailscale outbound's group
+  - DOMAIN-SUFFIX,dsh.dev,<tailscale-group>   # your tailscale outbound's group
 ```
 
 **2. 一条 hosts 记录，因为 fake-ip 不是一个地址。**
@@ -159,7 +159,7 @@ tailscale 出站必须连到一个真实 IP。在 `enhanced-mode: fake-ip` 下�
 
 ```yaml
 hosts:
-  dsh.dev: <tailnet-ip>     # the tailnet IP, not the LAN IP: no subnet
+  dsh.dev: <tailnet-ip>       # the tailnet IP, not the LAN IP: no subnet
                               # route advertisement required
 dns:
   use-hosts: true             # do not rely on the default
@@ -175,6 +175,43 @@ curl -s -o /dev/null -w '%{http_code}\n' http://dsh.dev/     # expect 308 -> htt
 ```
 
 这里 401 就是成功：栅栏接受了这个 authority，而没有会话 cookie 被呈上。`000` 意味着连接根本没到。
+
+### 同一套设置在 iOS 上，客户端是 Shadowrocket
+
+Shadowrocket 自带 Tailscale 出站，所以手机或平板以同样的方式加入 tailnet，也会撞上同样那三个问题。它有一条桌面客户端没有的约束：iOS 只允许一条隧道处于活动状态，代理客户端与 Tailscale App 无法同时连接 —— 这正是 tailnet 必须由代理客户端承载的原因。
+
+C2 把 `rules:` 和 `hosts:` 写进配置文件，iOS 则写进**模块**（配置 → 模块），后者优先级高于当前配置文件，且不会被订阅更新覆盖：
+
+```
+[Host]
+dsh.dev = <tailnet-ip>
+
+[General]
+use-local-host-item-for-proxy = true
+
+[Rule]
+DOMAIN-SUFFIX,dsh.dev,DIRECT
+```
+
+- `dsh.dev = <tailnet-ip>` 把这个名字映射到该地址并跳过 DNS。它与 `dsh.dev = server:<tailnet-ip>` **不是**同一条语句，后者是请那个地址去解析这个名字。差别只有一个 token，而 `server:` 那种写法在这里什么也不做。
+- `use-local-host-item-for-proxy = true` 是必需的。少了它，代理类目的地会在远端节点上解析，映射被忽略。
+- `DOMAIN-SUFFIX,…,DIRECT` 同样必需，而且是最容易漏掉的那一半。只有 host 映射时，一个 tailnet 目的地仍然会落到兜底规则上、被交给一个到不了它的代理节点：页面一直加载，而隧道上**一个包都没有**。`DIRECT` 让连接从设备本身发出，那里通往 tailnet 的路由本来就是通的。
+
+然后全局路由要设为配置，并切换客户端的主开关让隧道重建：模块贡献的是规则，而全局的代理与直连模式根本不跑规则，所以在那两种模式下它无法生效。这些齐了之后，在隧道上抓包会看到 ClientHello 到达，且**零 DNS 查询** —— 因为映射是本地的，什么也没有被解析。
+
+还有两步是每台设备各自的事，不属于模块。
+
+**分两步信任 CA。** iOS 会把 `.crt` 作为描述文件导入（设置 → 通用 → VPN与设备管理），并且**不会**顺手信任它，必须另行开启信任（设置 → 通用 → 关于本机 → 证书信任设置）。只导入不开启，恰好就是让 Safari 报出「不是私密链接」的那个状态，看起来像证书不对。iCloud 云盘只负责分发文件，不负责授予信任。
+
+**不要手输启动 token。** 它有 43 个字符，而一个输错产生的 401，和 authority 不匹配产生的完全一样，都是 `dsh web authentication required`，所以光看响应文本分不出这两种原因。请从已经有会话的设备上分享那条 URL。要区分两者，就抓 loopback 那一段，那里的请求行和状态码是明文：
+
+```sh
+sudo tcpdump -i lo0 -n -A 'tcp port 3080'
+```
+
+上面的映射写的是 tailnet 地址，所以只在隧道在线时成立。同一个设备在客户端断开时会经由网关解析，根本不需要模块 —— 只需要 CA。一个从不离开局域网的设备应该索性跳过模块，因为映射到一个 tailnet 地址会让这个名字在那里失败，而不是照旧通行。
+
+上面那条 `http://dsh.dev/` 检查成立，是因为 `curl` 不理会 HSTS 预加载列表。浏览器会理会，而 `.dev` 就在那张表上，所以浏览器永远无法验证明文这一跳：请求还没离开设备就被升级了。
 
 ---
 
@@ -295,4 +332,5 @@ req.end();' dsh.example.com "$COOKIE"
 | 再加一个 authority | 重复 `--trusted-host`，或者在 overlay 里列出来 |
 | 看组合后的配置 | `dsh --profile web --dump-config` |
 | 诊断什么都 403 | 反代改写了 `Host` |
+| 诊断桌面端登录正常、iOS 却 401 | 43 个字符的 token 被手输了 —— 请改为分享那条 URL（配方 C2） |
 | 诊断 GUI 卡在重连 | 反代没有转发 WebSocket 升级 |
