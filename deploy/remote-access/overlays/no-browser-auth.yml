@@ -1,0 +1,32 @@
+# happy-dsh — serve the Web UI without a browser session.
+#
+#     dsh web --no-open --trusted-host dsh.example.com \
+#             --patch /abs/path/behind-proxy.yml \
+#             --patch /abs/path/remote-browser.yml \
+#             --patch /abs/path/no-browser-auth.yml
+#
+# ── What this changes ───────────────────────────────────────────────────────
+# `requireBrowserAuth: false` drops the process launch token and the signed
+# cookie from the Web path: no `?token=` URL to carry between devices, no login
+# step on a new browser, nothing to re-issue after a restart. `dsh web` prints a
+# bare URL instead of a tokenized one.
+#
+# ── What it costs ───────────────────────────────────────────────────────────
+# The Web UI drives tool-capable Sessions with this process's own authority, so
+# every client that reaches a trusted authority can run commands as this user.
+# The Host/Origin fence is untouched and still decides the reachable set, but it
+# never established identity: certificate trust is not a barrier either, because
+# any client can ignore a certificate it does not trust.
+#
+# Apply this only where every client that can reach the authority is one you
+# control -- a single-operator tailnet, or a home LAN you own end to end. Where a
+# tailnet carries the traffic, Tailscale ACLs are the practical access control.
+#
+# `trustedHosts` is restated rather than inherited: a patch overrides the
+# bundle's config value, and the fence is what keeps this mode narrow.
+
+- id: connection
+  name: '@deepseek-ai/dsh-client-connection'
+  config:
+    trustedHosts: !!js ctx.webRuntime.trustedHosts
+    requireBrowserAuth: false

@@ -130,6 +130,8 @@ dsh web: http://127.0.0.1:3080/?token=<opaque>
 
 那个 token 能为**任意受信 authority** 铸一个会话 cookie。它不是一次性的，不会过期，也没有按 token 撤销的机制 —— 它在进程退出前一直有效。读到它的人就能驱动你的 agent。
 
+一个关掉浏览器认证的部署 —— 加上 `--patch …/remote-access/overlays/no-browser-auth.yml`，也就是用栅栏本已决定的可达集合换掉会话要求 —— 打印的这一行**不带** token，`install.sh` 也随之报告一个普通的 URL，而不是登录链接。对其他每一个部署，token 仍然是进门方式，这也是日志文件仍以 `0600` 创建的原因。
+
 服务 stdout 的默认归宿是 journal，那里 `systemd-journal` / `adm` 组里的人都能读。**设计这套东西的时候调研了七个服务 unit —— gitea、syncthing ×2、code-server ×2、ollama、OpenClaw —— 没有一份设了 `StandardOutput`。** 所以这是整个类别共同的缺口，不是哪个项目独有的错误。
 
 修法是三个设置，第三个是大家会漏的那个：

@@ -221,6 +221,8 @@ sudo tcpdump -i lo0 -n -A 'tcp port 3080'
 
 **DSH 的认证是什么。** 在 `GET /` 上，服务器把每进程的启动 token（`?token=…`）换成一张签名 cookie，绑定在请求的 authority 上 —— 主机名和端口。之后每一个 `/api` 请求 —— 一元调用、WebSocket 升级、通用 channel —— 都必须呈上一个 loopback 或显式受信的 Host，**并且**呈上那张 cookie。失败是 403（栅栏）或 401（没有有效会话）。
 
+**部署可以放弃会话要求。** 在 `dsh-client-connection` 上设 `requireBrowserAuth: false` —— overlay 就是 [`overlays/no-browser-auth.yml`](overlays/no-browser-auth.yml) —— 会直接提供 UI，并接纳每一个通过栅栏的请求，于是 `dsh web` 打印的 URL 不带 token，也不再有浏览器登录这一步。上面那道栅栏仍然决定可达性，而证书不能替代它：任何能到达某个 authority 的客户端都可以忽略它不信任的证书。只有在你控制着所有能到达受信 authority 的客户端时，才该动用它。
+
 **它不是什么。** Host/Origin 栅栏是针对 DNS rebinding 的混淆代理防御，不是身份。它决定的是*可达性*，不是*你是谁*。往 `trustedHosts` 里加一个 authority 本身不授予任何权限；它只是让栅栏不再拒绝那个 Host。
 
 **cookie 就是 bearer 凭证，而它不带 `Secure` 属性。** DSH 自带的传输假设是 loopback HTTP，所以那个属性被省略了。后果：
