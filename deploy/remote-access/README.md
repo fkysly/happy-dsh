@@ -327,6 +327,15 @@ WebSocket upgrade, generic channels — must present a Host that is loopback or
 explicitly trusted, **and** that cookie. Failure is 403 (fence) or 401 (no valid
 session).
 
+**A deployment can drop the session requirement.** `requireBrowserAuth: false` on
+`dsh-client-connection` — the overlay is
+[`overlays/no-browser-auth.yml`](overlays/no-browser-auth.yml) — serves the UI and
+admits every request the fence accepts, so `dsh web` prints a URL with no token
+and no browser logs in. The fence above still decides reachability, and a
+certificate is no substitute for it: any client that can reach an authority may
+ignore a certificate it does not trust. Reach for it only where every client that
+can reach a trusted authority is one you control.
+
 **What it is not.** The Host/Origin fence is a confused-deputy defence against
 DNS rebinding, not identity. It decides *reachability*, not *who you are*. Adding
 an authority to `trustedHosts` grants no privileges by itself; it only stops the

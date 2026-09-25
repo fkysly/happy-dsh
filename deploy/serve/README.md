@@ -162,6 +162,13 @@ That token mints a session cookie **for any trusted authority**. It is not
 single-use, it does not expire, and there is no per-token revocation — it is
 valid until the process exits. Anyone who reads it can drive your agent.
 
+A deployment that turns browser authentication off — add
+`--patch …/remote-access/overlays/no-browser-auth.yml`, which trades the session
+for the reachable set the fence already decides — prints this line **without** a
+token, and `install.sh` then reports the plain URL instead of a login link. The
+token stays the way in for every other deployment, which is why the log file is
+still created `0600`.
+
 The default thing to do with a service's stdout is send it to the journal,
 where everyone in `systemd-journal` / `adm` can read it. **Seven service units
 were surveyed while designing this — gitea, syncthing ×2, code-server ×2,

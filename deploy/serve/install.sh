@@ -23,7 +23,9 @@
 # 1. stdout/stderr go to a 0600 file under DSH_HOME, NOT to the journal.
 #    On boot DSH prints `dsh web: http://…?token=<opaque>`. That token mints a
 #    session cookie for any trusted authority, is not single-use, and stays
-#    valid until the process exits. Under a supervisor the default is to route
+#    valid until the process exits — a deployment that patches browser
+#    authentication out (remote-access/overlays/no-browser-auth.yml) prints the
+#    same line without it. Under a supervisor the default is to route
 #    stdout to the journal, where everyone in systemd-journal / adm can read it.
 # 2. The log file is created 0600 *before* the supervisor opens it. Both
 #    launchd and systemd create a missing log file with the default umask
@@ -157,7 +159,7 @@ sd_quote() {
 
 # The one command a user needs when they come back weeks later to add a device.
 read_url_hint() {
-  printf 'grep -Eo "https?://[^ ]*token=[^ ]*" %s | tail -1' "$STDOUT_LOG"
+  printf 'grep -Eo "^dsh web: https?://[^ ]+" %s | tail -1' "$STDOUT_LOG"
 }
 
 # A login shell's PATH is typically full of repeats (~/.zshrc prepending the
@@ -513,7 +515,9 @@ UMask=0077
 
 # stdout/stderr to a 0600 file, NOT the journal: the boot line carries the
 # launch token, which mints a session cookie for any trusted authority and is
-# valid until the process exits. Both files are pre-created 0600 above.
+# valid until the process exits. Both files are pre-created 0600 above. A
+# deployment that patches browser authentication out prints no token, but the
+# mode is still needed everywhere the token does appear.
 StandardOutput=append:$STDOUT_LOG
 StandardError=append:$STDERR_LOG
 
@@ -632,17 +636,26 @@ step "Waiting for the Web UI to come up"
 url=""
 for _ in $(seq 1 40); do
   # Only the bytes written since LOG_OFFSET — see the note where it is set.
+  # `dsh web` prints one such line per start: tokenized by default, and bare
+  # when the deployment patched browser authentication out.
   url="$(tail -c +$((LOG_OFFSET + 1)) "$STDOUT_LOG" 2>/dev/null \
-         | grep -Eo 'https?://[^[:space:]]*token=[^[:space:]]*' | tail -1 || true)"
+         | grep -Eo '^dsh web: https?://[^[:space:]]+' | tail -1 | sed 's/^dsh web: //' || true)"
   [ -n "$url" ] && break
   sleep 0.5
 done
 
 if [ -n "$url" ]; then
-  printf '\n  Ready. Open this once to mint a session cookie:\n\n'
-  printf '      %s\n\n' "$url"
-  printf '  Treat this URL as a password — it stays valid until the process restarts.\n'
-  printf '  The cookie it mints lasts 30 days and survives restarts.\n'
+  case "$url" in
+    *token=*)
+      printf '\n  Ready. Open this once to mint a session cookie:\n\n'
+      printf '      %s\n\n' "$url"
+      printf '  Treat this URL as a password — it stays valid until the process restarts.\n'
+      printf '  The cookie it mints lasts 30 days and survives restarts.\n' ;;
+    *)
+      printf '\n  Ready. Open this:\n\n'
+      printf '      %s\n\n' "$url"
+      printf '  This deployment runs without browser authentication, so the URL carries no token.\n' ;;
+  esac
 else
   printf '\n  No URL in %s yet. Check %s.\n\n' "$STDOUT_LOG" "$STDERR_LOG"
 fi
