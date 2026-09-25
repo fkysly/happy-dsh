@@ -1,0 +1,259 @@
+# happy-dsh — publish a fork release when a `happy-dsh-v*` tag is pushed.
+#
+# Nothing upstream does this. Their release.yml and release-publish.yml are
+# manual dispatches that only verify the ref is a tag, and their namespaces
+# (`dsh-v*`, `vendor-*-v*`) name dsh's own versions, which this fork does not
+# publish. This fork's line is `happy-dsh-v<version>`, recorded in one file,
+# `happy-dsh.version` — see deploy/release/README.md for the runbook.
+#
+# The tag is not trusted on its own. Publishing requires that the tagged commit
+# already passed the fork's nine gates on master, checked by name against that
+# commit's check runs; the ancestry test beside it is only a cheap first
+# refusal. `allow-ungated` exists because check runs are retained for 90 days,
+# so re-releasing an older commit cannot prove the same thing — it is a
+# deliberate, audited override, never the default.
+#
+# What this does NOT produce is a runnable distribution. Deployments run from a
+# checkout (`git pull` → `pnpm run build` → restart the service; see
+# deploy/serve/). What lands here is the built Web client plus the build record
+# that says exactly which commit and which public values produced it, so a
+# release is identifiable and reproducible. A single-file executable is a
+# later step: upstream's build-exe-for-python-sdk.yml is the route to reuse.
+#
+# GitHub-hosted runners only, `GITHUB_TOKEN` only — no secrets, no self-hosted
+# fleet. Upstream's own `DSH_CLIENT_*` workflow-wide environment rule does not
+# apply here: this workflow sets none of them, and reads the version from the
+# file instead.
+
+name: happy-dsh release
+
+on:
+  push:
+    tags: ['happy-dsh-v*']
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Verify and build, then stop before creating the release'
+        type: boolean
+        default: true
+      allow-ungated:
+        description: 'Publish although this commit''s master gates are not all green'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A release is not a build: never cancel one half-published, and never let two
+  # runs race for the same tag.
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  # Naming a permission drops every unlisted one to `none`, and the gate check
+  # reads this commit's check runs.
+  checks: read
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+
+jobs:
+
+  release:
+    name: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Release notes are generated from the range this tag closes, and the
+          # tagged commit is checked against master — both need history.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # A tag names its own version; a dispatch is told which version the
+      # checkout declares and then has to produce that tag, or fail.
+      - name: Resolve the version and the tag
+        id: version
+        run: |
+          set -euo pipefail
+          declared=$(tr -d '[:space:]' < happy-dsh.version)
+          if [[ "$GITHUB_REF_TYPE" == 'tag' ]]; then
+            tag="$GITHUB_REF_NAME"
+            version="${tag#happy-dsh-v}"
+          else
+            version="$declared"
+            tag="happy-dsh-v$version"
+          fi
+          {
+            echo "declared=$declared"
+            echo "tag=$tag"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
+      # Three refusals, each of which is a real way to publish the wrong thing:
+      # a tag that disagrees with the version file, a tag naming a development
+      # version, and a tag on a commit that is not on master.
+      - name: Verify the tag names this version, on master
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DECLARED: ${{ steps.version.outputs.declared }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION" != "$DECLARED" ]]; then
+            echo "::error::$TAG names $VERSION, but happy-dsh.version holds $DECLARED"
+            exit 1
+          fi
+          if [[ "$VERSION" == *-dev.* ]]; then
+            echo "::error::$TAG names a development version; run \`pnpm run happy-dsh:version release\` and tag that commit instead"
+            exit 1
+          fi
+
+          # checkout fetches only the built ref, so master's history is asked
+          # for explicitly; it shares objects with the tag, so this is cheap.
+          git fetch --no-tags --quiet origin '+refs/heads/master:refs/remotes/origin/master'
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/master; then
+            echo "::error::$TAG points at $GITHUB_SHA, which is not an ancestor of master"
+            exit 1
+          fi
+          echo "$TAG names $VERSION at $GITHUB_SHA, on master" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Require every gate to have passed on master
+        if: inputs['allow-ungated'] != true
+        env:
+          # The job names branch protection requires on a pull request. They are
+          # the same nine checks master runs for the same commit.
+          REQUIRED_CHECKS: |
+            static gates
+            unit tests with coverage
+            snapshot gates
+            build, artifact, typecheck and lint gates
+            windows gates under wine
+            web browser snapshots
+            node 22.19 compatibility
+            node 24.9 compatibility
+            node 26 compatibility
+        run: |
+          set -euo pipefail
+
+          # Scoped to master on purpose. A commit can also carry check runs from
+          # the pull request that proposed it, and this workflow's own run adds
+          # one for the tag; neither is the claim being verified, which is "the
+          # gates ran on master for this commit and passed".
+          gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?per_page=100" \
+            --jq '.check_runs[] | select(.check_suite.head_branch == "master") | "\(.name)\t\(.conclusion)"' \
+            > "$RUNNER_TEMP/check-runs.tsv"
+
+          # A re-run replaces an attempt without deleting the old check run, so
+          # any successful run of a name satisfies it — which is how the pull
+          # request page reads too.
+          missing=()
+          while IFS= read -r name; do
+            [[ -z "$name" ]] && continue
+            if ! awk -F'\t' -v want="$name" '$1 == want && $2 == "success" { found = 1 } END { exit !found }' \
+              "$RUNNER_TEMP/check-runs.tsv"; then
+              missing+=("$name")
+            fi
+          done <<< "$REQUIRED_CHECKS"
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::$GITHUB_SHA has no successful master run of: ${missing[*]}"
+            echo "Every gate must be green on master first. Re-running the failed job is enough;"
+            echo "publishing anyway needs a manual dispatch with allow-ungated."
+            exit 1
+          fi
+          echo "All nine gates passed on master for $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The fork's own build: it carries this release's version and the fork's
+      # branding, which is what the attached client is supposed to be.
+      - name: Build
+        run: pnpm run build
+
+      - name: Package the client artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release
+          cp .dsh-build/client-build-environment.json dist/release/
+          tar -czf "dist/release/happy-dsh-client-$VERSION.tar.gz" \
+            apps/web/dist .dsh-build/client-build-environment.json
+          ls -l dist/release
+
+      - name: Write the release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - "$VERSION" "$GITHUB_SHA" "$GITHUB_REPOSITORY" <<'PY' > dist/notes.md
+          import json, sys, pathlib
+
+          version, sha, repository = sys.argv[1:4]
+          record = json.loads(pathlib.Path('.dsh-build/client-build-environment.json').read_text())
+          base = json.loads(pathlib.Path('package.json').read_text())['version']
+          environment = record['environment']
+          print(f'happy-dsh **{version}**, built from `{sha[:7]}` in {repository}.')
+          print()
+          print(f'dsh **{base}** underneath: `dsh --version` reports the base version that')
+          print('plugins declare peer ranges against, while the Web UI reports this release.')
+          print()
+          print('**Not a runnable distribution.** Deployments run from a checkout —')
+          print('`git pull`, `pnpm run build`, restart the service. See `deploy/serve/`.')
+          print()
+          print('| asset | what it is |')
+          print('|---|---|')
+          print(f'| `happy-dsh-client-{version}.tar.gz` | the built Web client (`apps/web/dist`) for this commit |')
+          print('| `client-build-environment.json` | the public values embedded in it, and the digest of the artifacts |')
+          print()
+          print('Public values embedded in the client:')
+          print()
+          print('| variable | value |')
+          print('|---|---|')
+          for name, value in sorted(environment.items()):
+              print(f'| `{name}` | `{value}` |')
+          print()
+          print(f'Artifact digest: `{record["artifacts"]["sha256"]}` over {record["artifacts"]["fileCount"]} file(s).')
+          PY
+          cat dist/notes.md
+
+      - name: Report a dry run
+        if: github.event_name == 'workflow_dispatch' && inputs['dry-run'] == true
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: echo "Dry run: no release was created for $TAG" >> "$GITHUB_STEP_SUMMARY"
+
+      # --generate-notes is what makes the changelog come from the merged pull
+      # requests rather than from commit subjects; the notes file is prepended.
+      - name: Create the release
+        if: github.event_name == 'push' || inputs['dry-run'] != true
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          args=(--title "happy-dsh $VERSION" --notes-file dist/notes.md --verify-tag)
+          previous=$(git describe --tags --abbrev=0 --match 'happy-dsh-v*' "$GITHUB_SHA^" 2>/dev/null || true)
+          if [[ -n "$previous" ]]; then
+            # The range this tag closes, named explicitly: the tag history also
+            # carries dsh's own tags, and generating notes against one of those
+            # would describe upstream's release rather than this one.
+            args+=(--generate-notes --notes-start-tag "$previous" --fail-on-no-commits)
+          else
+            # The first release in the fork's line has no previous `happy-dsh-v*`
+            # tag, so there is no range to generate a changelog from — and
+            # generating one from the start of history would be noise.
+            echo "No previous happy-dsh-v* tag; publishing the notes file alone." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          gh release create "$TAG" "${args[@]}" \
+            "dist/release/happy-dsh-client-$VERSION.tar.gz" \
+            dist/release/client-build-environment.json
