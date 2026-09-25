@@ -115,24 +115,29 @@ Four steps, in this order.
 pnpm run happy-dsh:version release          # 0.1.0-dev.4 -> 0.1.0
 git commit -am 'release: happy-dsh 0.1.0'
 git push origin master                      # via a pull request, like anything else
+```
+
+Once that commit is on `master` and its gates are green, rehearse the publish
+without making one. This validates, builds, writes the notes, and stops before
+creating anything — and it is refused while the version file still says
+`-dev.N`, because it rehearses a release commit rather than a development line:
+
+```sh
+gh workflow run happy-dsh-release.yml -f dry-run=true
+```
+
+Then the tag is what publishes. The moment it lands, the release workflow
+builds that commit and creates the GitHub Release:
+
+```sh
 git tag happy-dsh-v0.1.0 && git push origin happy-dsh-v0.1.0
 ```
 
-Pushing the tag is what publishes. The moment it lands, the release workflow
-builds that commit and creates the GitHub Release.
-
-Then open the next development line, so the next thing you build is not
+And last, open the next development line, so the next thing you build is not
 silently still called `0.1.0`:
 
 ```sh
 pnpm run happy-dsh:version dev              # 0.1.0 -> 0.1.1-dev.1
-```
-
-To see what a release would do without publishing one — this validates,
-builds, and writes the notes, then stops:
-
-```sh
-gh workflow run happy-dsh-release.yml -f dry-run=true
 ```
 
 ---

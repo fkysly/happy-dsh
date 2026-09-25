@@ -13,15 +13,21 @@ import yaml from 'js-yaml'
 import { describe, expect, it } from 'vitest'
 
 const root = resolve(import.meta.dirname, '../..')
-const workflows = globSync('.github/workflows/happy-dsh-*.yml', { cwd: root }).map(path => path.replaceAll('\\', '/')).sort()
+const workflows = globSync('.github/workflows/happy-dsh-*.yml', { cwd: root })
+  .map(path => path.replaceAll('\\', '/'))
+  .sort()
 
 /** The job names a workflow declares, in declaration order. */
 function jobNames(document: Record<string, unknown>): string[] {
   const jobs = document.jobs
-  if (typeof jobs !== 'object' || jobs === null || Array.isArray(jobs)) return []
+  if (!isRecord(jobs)) return []
   return Object.values(jobs)
-    .map(job => (typeof job === 'object' && job !== null ? Reflect.get(job, 'name') : undefined))
+    .map(job => (isRecord(job) ? job.name : undefined))
     .filter((name): name is string => typeof name === 'string')
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 describe('fork workflow files', () => {
@@ -36,23 +42,18 @@ describe('fork workflow files', () => {
 
   for (const path of workflows) {
     it(`${path} parses, and every job says where it runs`, () => {
-      const source = readFileSync(resolve(root, path), 'utf8')
-      const document: unknown = yaml.load(source)
-      if (typeof document !== 'object' || document === null || Array.isArray(document)) {
-        throw new TypeError(`${path} must contain a workflow mapping`)
-      }
-      if (typeof Reflect.get(document, 'name') !== 'string') {
-        throw new TypeError(`${path} must declare a workflow name`)
-      }
-      const jobs = Reflect.get(document, 'jobs')
-      if (typeof jobs !== 'object' || jobs === null || Array.isArray(jobs)) {
-        throw new TypeError(`${path} must declare jobs`)
-      }
-      expect(jobNames(document as Record<string, unknown>).length).toBeGreaterThan(0)
+      const document: unknown = yaml.load(readFileSync(resolve(root, path), 'utf8'))
+      if (!isRecord(document)) throw new TypeError(`${path} must contain a workflow mapping`)
+      if (typeof document.name !== 'string') throw new TypeError(`${path} must declare a workflow name`)
+      const jobs = document.jobs
+      if (!isRecord(jobs)) throw new TypeError(`${path} must declare jobs`)
+
+      expect(jobNames(document).length).toBeGreaterThan(0)
       for (const [id, job] of Object.entries(jobs)) {
-        // A job without a runner is accepted by the parser and then never
-        // scheduled, which is the same silent nothing this file exists to catch.
-        expect(typeof Reflect.get(job as object, 'runs-on'), `${path}: job ${id}`).toBe('string')
+        if (!isRecord(job)) throw new TypeError(`${path}: job ${id} must be a mapping`)
+        // A job without a runner is accepted by the parser, and then never
+        // scheduled — the same silent nothing this file exists to catch.
+        expect(typeof job['runs-on'], `${path}: job ${id}`).toBe('string')
       }
     })
   }
