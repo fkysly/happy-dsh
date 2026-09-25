@@ -7,10 +7,10 @@
 # `happy-dsh.version` — see deploy/release/README.md for the runbook.
 #
 # The tag is not trusted on its own. Publishing requires that the tagged commit
-# already passed the fork's nine gates on master, checked by name against that
-# commit's check runs; the ancestry test beside it is only a cheap first
-# refusal. `allow-ungated` exists because check runs are retained for 90 days,
-# so re-releasing an older commit cannot prove the same thing — it is a
+# already passed the fork's nine gates on master, checked by name against the
+# jobs of that commit's gate run; the ancestry test beside it is only a cheap
+# first refusal. `allow-ungated` exists because workflow runs are kept for 90
+# days, so re-releasing an older commit cannot prove the same thing — it is a
 # deliberate, audited override, never the default.
 #
 # What this does NOT produce is a runnable distribution. Deployments run from a
@@ -50,8 +50,8 @@ concurrency:
 permissions:
   contents: write
   # Naming a permission drops every unlisted one to `none`, and the gate check
-  # reads this commit's check runs.
-  checks: read
+  # reads this commit's workflow runs.
+  actions: read
 
 env:
   DSH_TELEMETRY_DISABLED: '1'
@@ -143,33 +143,51 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Scoped to master on purpose. A commit can also carry check runs from
-          # the pull request that proposed it, and this workflow's own run adds
-          # one for the tag; neither is the claim being verified, which is "the
-          # gates ran on master for this commit and passed".
-          gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?per_page=100" \
-            --jq '.check_runs[] | select(.check_suite.head_branch == "master") | "\(.name)\t\(.conclusion)"' \
-            > "$RUNNER_TEMP/check-runs.tsv"
+          # The gate workflow's own push runs for this commit, asked for by
+          # branch rather than read off the commit: a commit carries check runs
+          # from the pull request that proposed it and one from this release run
+          # for the tag, and the check-run payload does not say which branch a
+          # run belonged to. Only the push to master is the claim being verified.
+          runs=$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&branch=master&per_page=100" \
+            --jq '.workflow_runs[] | select(.name == "happy-dsh gates" and .event == "push") | "\(.id)\t\(.conclusion)"')
 
-          # A re-run replaces an attempt without deleting the old check run, so
-          # any successful run of a name satisfies it — which is how the pull
-          # request page reads too.
-          missing=()
-          while IFS= read -r name; do
-            [[ -z "$name" ]] && continue
-            if ! awk -F'\t' -v want="$name" '$1 == want && $2 == "success" { found = 1 } END { exit !found }' \
-              "$RUNNER_TEMP/check-runs.tsv"; then
-              missing+=("$name")
+          if [[ -z "$runs" ]]; then
+            echo "::error::$GITHUB_SHA has no 'happy-dsh gates' push run on master"
+            exit 1
+          fi
+
+          # A re-run leaves the earlier attempt in place, so any successful run
+          # satisfies this — the same way the pull request page reads.
+          passed=''
+          while IFS=$'\t' read -r id conclusion; do
+            [[ "$conclusion" == 'success' ]] || continue
+            jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?per_page=100" \
+              --jq '.jobs[] | "\(.name)\t\(.conclusion)"')
+            missing=''
+            while IFS= read -r name; do
+              [[ -z "$name" ]] && continue
+              if ! printf '%s\n' "$jobs" \
+                | awk -F'\t' -v want="$name" '$1 == want && $2 == "success" { found = 1 } END { exit !found }'; then
+                missing+="$name, "
+              fi
+            done <<< "$REQUIRED_CHECKS"
+            if [[ -z "$missing" ]]; then
+              passed="$id"
+              break
             fi
-          done <<< "$REQUIRED_CHECKS"
+            # A green run that does not report these names means the gate set
+            # moved and this list did not.
+            echo "::warning::run $id succeeded but does not report: ${missing%, }"
+          done <<< "$runs"
 
-          if (( ${#missing[@]} > 0 )); then
-            echo "::error::$GITHUB_SHA has no successful master run of: ${missing[*]}"
+          if [[ -z "$passed" ]]; then
+            echo "::error::no successful 'happy-dsh gates' push run on master for $GITHUB_SHA reports all nine required checks"
             echo "Every gate must be green on master first. Re-running the failed job is enough;"
             echo "publishing anyway needs a manual dispatch with allow-ungated."
             exit 1
           fi
-          echo "All nine gates passed on master for $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "All nine gates passed on master for $GITHUB_SHA (run $passed)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
