@@ -36,6 +36,38 @@ cd deploy/serve
 
 ---
 
+## 它会往你的 profile 里装什么
+
+`install.sh` 会在**加载服务之前**把两个插件装进 profile，所以第一次启动就已经带着它们：
+
+| 插件 | 是什么 |
+|---|---|
+| `dshmarket` | 社区插件市场 —— 设置 → **插件市场**：浏览、搜索、一键安装、主题、更新 |
+| `dsh-find-plugin` | 同一个目录，但入口在会话里，于是 agent 可以替你搜、替你装 |
+
+**两个都是第三方包** —— 接受这个默认值之前值得知道：它们来自 npm
+（`github.com/dsh-market/dsh-market`、`github.com/awesome-dsh-plugin/dsh-find-plugin`，都是 MIT），
+不来自这个仓库。它们不是构建的依赖，按自己的节奏发版，而且那个市场还能替你从
+[受审核的目录](https://awesome-dsh-plugin.com)继续装别的插件。不想要这些的部署：
+
+```sh
+./install.sh --trusted-host dsh.dev --no-default-plugins
+
+# or keep the defaults and add your own
+./install.sh --trusted-host dsh.dev --plugin github:you/your-plugin
+```
+
+顺序就是「不需要第二次重启」的原因：`dsh plugin` 会把还不存在的 profile 按它自带的模板初始化，
+于是一个全新的 `web` profile 在一次启动里就同时有了 `dsh-base`、`dsh-web-app` 和这两个插件。
+profile 里其它东西一律不动 —— `add` 只是往它的 `package.json` 里追加。
+
+它们是普通的 profile 依赖，所以 `./install.sh --uninstall` 会把它们原样留下，连同 `$DSH_HOME`
+的其余部分。想看它们怎么参与组合 —— 它们排在 bundle 之后的最后两层：
+
+```sh
+dsh --profile web --dump-config | tail -6
+```
+
 ## 两种用法
 
 | | **`install.sh`** | **`launchd/` · `systemd/`** |
