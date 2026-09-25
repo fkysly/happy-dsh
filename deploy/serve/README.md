@@ -48,8 +48,16 @@ loaded, so the first boot already has them:
 
 | plugin | what it is |
 |---|---|
-| `dshmarket` | the community plugin market — Settings → **Plugin Market**: browse, search, one-click install, themes, updates |
-| `dsh-find-plugin` | the same catalogue inside the conversation, so the agent can search it and install what you ask for |
+| `dshmarket@1.65.3` | the community plugin market — Settings → **Plugin Market**: browse, search, one-click install, themes, updates |
+| `dsh-find-plugin@0.4.0` | the same catalogue inside the conversation, so the agent can search it and install what you ask for |
+
+The versions are **pins, not ranges**: `install.sh` names an exact pair, so two
+deployments of one release install the same code. `pnpm run
+happy-dsh:preinstall bump` moves them to the registry's latest — the installer
+and both READMEs together — and `deploy/release/preinstall-smoke.sh` installs
+the new pair into a scratch profile and boots the service on a scratch port.
+The release workflow refuses a stale pin, and refuses to publish until that
+smoke passes: a plugin that cannot load takes the whole boot down with it.
 
 **Both are third-party packages**, and that is worth knowing before you accept
 the default: they come from npm (`github.com/dsh-market/dsh-market`,

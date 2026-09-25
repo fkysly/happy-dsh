@@ -96,6 +96,12 @@ jobs:
       # should read as the version file being wrong, not as the aggregate.
       - name: Check the fork version file
         run: pnpm run happy-dsh:version check
+      # The pins a deployment preinstalls, and the two READMEs that name the same
+      # pair. The offline half only: whether a pin is the registry's latest is
+      # the release workflow's business, not something every pull request should
+      # wait on a third-party registry to answer.
+      - name: Check the preinstalled plugin pins
+        run: pnpm run happy-dsh:preinstall verify
 
   tests:
     name: unit tests with coverage

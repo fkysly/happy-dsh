@@ -95,9 +95,32 @@ gh api -X PUT "repos/fkysly/happy-dsh/actions/workflows/<id>/enable"    # turn o
 
 ---
 
+## 发版之前：刷新预装的东西
+
+`install.sh` 会以确切版本预装两个第三方插件，所以这两个 pin 也是 release 承诺的一部分 ——
+而它们按别人的节奏发版，这个仓库里没有任何东西会注意到。所以先刷新，并且**证明**新的组合，
+而不是假定它没问题：
+
+```sh
+pnpm run happy-dsh:preinstall check          # what moved, if anything
+pnpm run happy-dsh:preinstall bump           # take the registry's latest, in install.sh and both READMEs
+bash deploy/release/preinstall-smoke.sh      # install the pair into a scratch profile, and boot it
+```
+
+```
+  ✓ installed and booted: dshmarket@1.65.3 dsh-find-plugin@0.4.0
+```
+
+真正管用的是那个 smoke。`check` 比的是版本号，而版本号看不出一个 pin 是「能装」还是
+「会把服务带下去」：DSH 的启动是全有或全无，一个插件加载失败就结束整个进程。smoke 做的是
+一台新机器会做的事 —— 一个还不存在的 profile、registry 上的这两个 pin、在一个临时端口上真的启动一次
+—— 没过它，发布流程不让 tag 过。bump 的结果和 smoke 的绿一起提交。
+
+---
+
 ## 发一个版本
 
-四步，按顺序。
+pin 就绪之后，四步，按顺序。
 
 ```sh
 pnpm run happy-dsh:version release          # 0.1.0-dev.4 -> 0.1.0
@@ -130,7 +153,7 @@ pnpm run happy-dsh:version dev              # 0.1.0 -> 0.1.1-dev.1
 ## tag 落地时 CI 做什么
 
 [`happy-dsh-release.yml`](../../.github/workflows/happy-dsh-release.yml) 在
-`happy-dsh-v*` tag 上运行。它有四种拒绝方式，每一种都对应一条真能把错东西发出去的路：
+`happy-dsh-v*` tag 上运行。它有六种拒绝方式，每一种都对应一条真能把错东西发出去的路：
 
 1. **tag 与版本文件不一致。** 在 `happy-dsh.version` 写着 `0.1.0` 的提交上打
    `happy-dsh-v0.2.0`，直接失败。文件是源，tag 只能给它命名。
@@ -141,6 +164,11 @@ pnpm run happy-dsh:version dev              # 0.1.0 -> 0.1.1-dev.1
    **push 到 `master`** 的那次闸运行（直接按分支去查运行记录，而不是读该提交的 check runs ——
    后者根本说不出某次运行属于哪个分支），并要求其中一次把九个名字（与分支保护要求的同一批）
    全都报成成功。只在特性分支上绿过的提交，会被拒绝。
+5. **某个预装插件的 pin 过期了。** `install.sh` 以确切版本发两个第三方插件，而 registry 已经走过去了。
+   检查会指出是哪个 pin，并打印唯一那条修它的命令：`pnpm run happy-dsh:preinstall bump`。
+6. **这对 pin 装不上、或起不来。** smoke 会把这个组合走过一个全新的 profile 并真的启动一次。
+   这一条是版本号看不见的：DSH 的启动是全有或全无，一个插件加载失败就结束进程，于是 release
+   等于在发一个起不来的默认值。
 
 运行记录只保留 90 天，所以对更老的提交重新发版没法用这个办法证明。`allow-ungated` 是
 那种情况下的可审计的越权开关；它从不是默认值，用的时候日志里会很显眼。

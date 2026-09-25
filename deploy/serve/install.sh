@@ -65,7 +65,14 @@ PRINT_ONLY=0
 
 # Plugins installed into the profile before the service starts. See the header
 # for why these two, and what accepting them means.
-DEFAULT_PLUGINS=(dshmarket dsh-find-plugin)
+#
+# Exact versions, not ranges. A release ships a pair that was installed and
+# booted by deploy/release/preinstall-smoke.sh, and the release workflow refuses
+# to publish a stale pin — so two deployments of one release install the same
+# code, and the smoke proves it about the version it names.
+# `pnpm run happy-dsh:preinstall bump` moves them, this line and the two
+# READMEs that quote the same pair together.
+DEFAULT_PLUGINS=(dshmarket@1.65.3 dsh-find-plugin@0.4.0)
 
 # How long the supervisor waits after SIGTERM before it SIGKILLs, in seconds.
 # One number, used for launchd's ExitTimeOut, systemd's TimeoutStopSec, and the

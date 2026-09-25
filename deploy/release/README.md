@@ -107,9 +107,36 @@ exercises the sandbox on all three platforms.
 
 ---
 
+## Before you cut: refresh what a new deployment preinstalls
+
+`install.sh` preinstalls two third-party plugins at exact versions, so those
+pins are part of what a release promises — and they move on somebody else's
+release schedule, where nothing in this repository notices. Refresh them first,
+and prove the new pair rather than assuming it:
+
+```sh
+pnpm run happy-dsh:preinstall check          # what moved, if anything
+pnpm run happy-dsh:preinstall bump           # take the registry's latest, in install.sh and both READMEs
+bash deploy/release/preinstall-smoke.sh      # install the pair into a scratch profile, and boot it
+```
+
+```
+  ✓ installed and booted: dshmarket@1.65.3 dsh-find-plugin@0.4.0
+```
+
+The smoke is the part that matters. `check` compares version numbers, and a
+version number cannot tell a pin that installs from one that takes the service
+down: DSH's boot is all-or-nothing, so one plugin that fails to load ends the
+process. The smoke does what a fresh deployment does — a profile that does not
+exist yet, the pins from the registry, a real boot on a scratch port — and the
+release workflow refuses the tag until it passes. Commit the bump with the
+smoke's output.
+
+---
+
 ## Cutting a release
 
-Four steps, in this order.
+With the pins current, four steps, in this order.
 
 ```sh
 pnpm run happy-dsh:version release          # 0.1.0-dev.4 -> 0.1.0
@@ -145,7 +172,7 @@ pnpm run happy-dsh:version dev              # 0.1.0 -> 0.1.1-dev.1
 ## What CI does when the tag lands
 
 [`happy-dsh-release.yml`](../../.github/workflows/happy-dsh-release.yml) runs on
-`happy-dsh-v*` tags. It refuses to publish in four ways, each of which is a real
+`happy-dsh-v*` tags. It refuses to publish in six ways, each of which is a real
 way to ship the wrong thing:
 
 1. **The tag disagrees with the version file.** `happy-dsh-v0.2.0` on a commit
@@ -161,6 +188,14 @@ way to ship the wrong thing:
    which branch a run belonged to — and requires one of them to report all nine
    names branch protection requires. A tag on a commit that only ever passed on
    a feature branch is refused.
+5. **A preinstalled plugin pin is stale.** `install.sh` ships exact versions of
+   two third-party plugins, and the registry has moved past one of them. The
+   check names the pin and prints the one command that fixes it:
+   `pnpm run happy-dsh:preinstall bump`.
+6. **The pinned pair does not install or boot.** The smoke runs the pins through
+   a scratch profile and a real boot. Version numbers cannot see this one: DSH's
+   boot is all-or-nothing, so a plugin that fails to load ends the process, and
+   the release would be shipping a default that cannot start.
 
 Workflow runs are kept for 90 days, so re-releasing an older commit cannot be
 proven this way. `allow-ungated` is the audited override for that case; it is

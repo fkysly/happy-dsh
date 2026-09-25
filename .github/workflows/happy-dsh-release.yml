@@ -192,10 +192,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The preinstalled plugin pins are part of what a release promises, and
+      # they move on somebody else's schedule. This asks the registry, and names
+      # the one command that fixes it. It sits here rather than with the refusals
+      # above because it needs tsx, and before anything is published either way.
+      - name: Require the preinstalled plugin pins to be current
+        run: pnpm run happy-dsh:preinstall check
+
       # The fork's own build: it carries this release's version and the fork's
       # branding, which is what the attached client is supposed to be.
       - name: Build
         run: pnpm run build
+
+      # And that the pinned pair actually installs and boots. `check` above can
+      # only compare version numbers; DSH's boot is all-or-nothing, so a plugin
+      # that fails to load ends the process, and a release would be shipping a
+      # default that cannot start. Needs the build, hence this position.
+      - name: Install the pinned plugins and boot the service
+        run: bash deploy/release/preinstall-smoke.sh
 
       - name: Package the client artifacts
         env:

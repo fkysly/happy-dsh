@@ -42,8 +42,13 @@ cd deploy/serve
 
 | 插件 | 是什么 |
 |---|---|
-| `dshmarket` | 社区插件市场 —— 设置 → **插件市场**：浏览、搜索、一键安装、主题、更新 |
-| `dsh-find-plugin` | 同一个目录，但入口在会话里，于是 agent 可以替你搜、替你装 |
+| `dshmarket@1.65.3` | 社区插件市场 —— 设置 → **插件市场**：浏览、搜索、一键安装、主题、更新 |
+| `dsh-find-plugin@0.4.0` | 同一个目录，但入口在会话里，于是 agent 可以替你搜、替你装 |
+
+版本是**钉死的，不是范围**：`install.sh` 写的是一个确切的组合，所以同一个 release 在两台机器上装的是同一份代码。
+`pnpm run happy-dsh:preinstall bump` 把它们推到 registry 上的最新版（install.sh 和两个 README 一起改），
+`deploy/release/preinstall-smoke.sh` 则把这个组合装进一个全新的 profile、换个端口真的把服务起起来。
+发布流程既拒绝过期的 pin，也拒绝在 smoke 没过的情况下发布 —— 一个加载不了的插件会把整个启动带下去。
 
 **两个都是第三方包** —— 接受这个默认值之前值得知道：它们来自 npm
 （`github.com/dsh-market/dsh-market`、`github.com/awesome-dsh-plugin/dsh-find-plugin`，都是 MIT），
