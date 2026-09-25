@@ -8,11 +8,11 @@ import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { openSettings, saveFailureShot } from './support.ts'
+import { builtClientVersion, openSettings, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/desktop-locale', import.meta.url))
 const MODE = webSnapshotMode()
-const { version } = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8')) as { version: string }
+const version = builtClientVersion()
 const versionCapture = { replacements: [[version, '{{version}}']] as const }
 
 describe.skipIf(MODE === 'record')('web e2e: native and Client locale preferences', () => {

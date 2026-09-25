@@ -1,5 +1,5 @@
 // Shared plumbing for the web smoke tests (dist location, free port, failure shots).
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -107,6 +107,42 @@ export function requireDist(): void {
   if (!existsSync(DIST_INDEX)) {
     throw new Error('web app dist not built — run `pnpm run build` from the repository root (`pnpm run test:web` does this first)')
   }
+}
+
+/** The record the last complete `pnpm run build` wrote beside the artifacts. */
+const CLIENT_BUILD_RECORD = join(REPO_ROOT, '.dsh-build', 'client-build-environment.json')
+
+/**
+ * The version the built client reports, taken from the record its build wrote.
+ *
+ * Not the root manifest's version: this fork publishes its own line from
+ * `happy-dsh.version` and the client embeds that instead (see
+ * `scripts/client-build-environment.ts`). A scenario that asserts the version
+ * row, or normalizes the version out of a golden, wants the value the page
+ * under test actually carries.
+ * @returns the `DSH_CLIENT_VERSION` the client artifacts were built with.
+ */
+export function builtClientVersion(): string {
+  let record: unknown
+  try {
+    record = JSON.parse(readFileSync(CLIENT_BUILD_RECORD, 'utf8'))
+  } catch (error) {
+    throw new Error(
+      'client build record unreadable — run `pnpm run build` from the repository root first: '
+      + (error instanceof Error ? error.message : String(error)),
+    )
+  }
+  const version = isRecord(record) && isRecord(record.environment)
+    ? record.environment.DSH_CLIENT_VERSION
+    : undefined
+  if (typeof version !== 'string') {
+    throw new Error('client build record carries no DSH_CLIENT_VERSION')
+  }
+  return version
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** OS-assigned free port, released before use (the spawned `dsh web` needs a concrete --port). */
