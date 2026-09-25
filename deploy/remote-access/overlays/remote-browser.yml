@@ -23,8 +23,11 @@
 #
 #     "Mount -native or -browse directly in an overlay to pin the interaction."
 #
-# The browse backend serves listing and creation over the Remote API, so the
-# picker renders inside the browser. Nothing appears on the host display.
+# The picker is a pair, and disabling the adaptive chooser removes both halves,
+# so both are mounted here: the browse backend serves listing and creation over
+# the Remote API, and the browse client surface renders the picker (and the
+# sidebar's add-workspace button) inside the browser. Nothing appears on the
+# host display.
 #
 # Note: this is a CONFIGURATION change, not a core change. It also is not needed
 # under Recipe B (`lan-all-interfaces.yml`), where a non-loopback bind already
@@ -43,6 +46,8 @@
       config:
         # Complete-result bound of one listing level.
         maxEntries: 1000
+    - id: ui-directory-picker-browse
+      name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
 
 # Drop the host-side "Open in..." affordances. Both halves go, so no button is
 # rendered rather than a button that acts on the wrong machine.
