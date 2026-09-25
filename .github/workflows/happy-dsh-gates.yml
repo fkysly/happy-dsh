@@ -46,7 +46,14 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # The event name belongs in the group. Without it, a manual dispatch of this
+  # workflow lands in the same group as the push run for the same branch and
+  # cancels it under `cancel-in-progress` — measured, not theoretical: a
+  # rehearsal dispatch on master cancelled that commit's own push run eight
+  # lanes into it, and a commit with no completed run is a commit that can
+  # never be released, because the release gate requires exactly that run to
+  # have finished green. Push supersedes push, dispatch supersedes dispatch.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
