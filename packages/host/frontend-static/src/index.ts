@@ -44,6 +44,9 @@ const MIME: Record<string, string> = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
+  // Home Screen icons (apple-touch-icon, manifest PNGs) are fetched by the OS
+  // installer, which expects an image type rather than octet-stream.
+  '.png': 'image/png',
   '.json': 'application/json',
   '.map': 'application/json',
   '.webmanifest': 'application/manifest+json',

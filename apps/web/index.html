@@ -6,6 +6,10 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)" />
+    <!-- Home Screen: iOS before 26 cannot use SVG for the app icon and prefers
+         this opaque PNG over the manifest icons. theme-color is written at
+         runtime by ui-layout's ThemePresenter from the applied theme. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- Match anchor for apps/web/vite.config.ts clientDocumentTitle(): the
          plugin swaps this exact string for $DSH_CLIENT_TITLE, so editing it
          here silently disables that override. -->
