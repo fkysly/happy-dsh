@@ -98,6 +98,36 @@ function probeDrawn(page: Page, labels: readonly string[]): Promise<HitReport[]>
   }), labels)
 }
 
+/**
+ * Measure one control after bringing it into the middle of its scroll area, so
+ * a row at the viewport edge is not reported as a clipped target.
+ * @param page - page showing the control.
+ * @param selector - CSS selector for the control.
+ * @returns the drawn box and the points on it that do not reach the control.
+ */
+function probeScrolled(page: Page, selector: string): Promise<{ drawn: readonly [number, number]; misses: readonly string[] }> {
+  return page.evaluate(async (sel) => {
+    const control = document.querySelector(sel)
+    if (control === null) throw new Error(`no element for ${sel}`)
+    control.scrollIntoView({ block: 'center' })
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const rect = control.getBoundingClientRect()
+    const cx = rect.x + rect.width / 2
+    const cy = rect.y + rect.height / 2
+    const reaches = (x: number, y: number): boolean => {
+      const hit = document.elementFromPoint(x, y)
+      return hit !== null && (hit === control || control.contains(hit))
+    }
+    const samples: [number, number][] = [
+      [cx, cy], [cx, rect.y + 1], [cx, rect.bottom - 1], [rect.x + 1, cy], [rect.right - 1, cy],
+    ]
+    return {
+      drawn: [Math.round(rect.width), Math.round(rect.height)] as const,
+      misses: samples.filter(([x, y]) => !reaches(x, y)).map(([x, y]) => `${String(Math.round(x))},${String(Math.round(y))}`),
+    }
+  }, selector)
+}
+
 describe.skipIf(MODE === 'record')('web e2e: touch hit areas', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -145,6 +175,26 @@ describe.skipIf(MODE === 'record')('web e2e: touch hit areas', () => {
       expect(report.drawn[0], report.label).toBeGreaterThanOrEqual(44)
       expect(report.drawn[1], report.label).toBeGreaterThanOrEqual(44)
       expect(report.misses, report.label).toEqual([])
+    }
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
+  it('reveals the font-size stepper without hover and gives its arrows a 44-point target', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-touch-targets-font-size'))
+    const opener = page.getByRole('button', { name: 'Open sidebar' }).first()
+    if (await opener.count() > 0) await opener.click()
+    await page.getByRole('button', { name: 'Settings' }).first().click()
+    await page.getByRole('dialog').first().waitFor({ timeout: 10_000 })
+    // No hover and no focus has happened yet: the arrows are revealed by the
+    // touch screen's own media query, not by a pointer the phone does not have.
+    const arrows = page.locator('[class*="_arrows"]').first()
+    expect(await arrows.evaluate(el => getComputedStyle(el).opacity)).toBe('1')
+
+    for (const label of ['Increase font size', 'Decrease font size']) {
+      const report = await probeScrolled(page, `button[aria-label="${label}"]`)
+      expect(report.drawn[0], label).toBeGreaterThanOrEqual(44)
+      expect(report.drawn[1], label).toBeGreaterThanOrEqual(44)
+      expect(report.misses, label).toEqual([])
     }
     expect(tripwire.pageErrors).toEqual([])
   })

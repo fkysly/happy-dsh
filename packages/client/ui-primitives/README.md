@@ -34,6 +34,8 @@ Compose feature UI from these atoms whenever the web client needs a standard con
 
 Check this table before writing a control in a feature package. A plugin cannot import another plugin's component, so this package is the only place a control can be shared: reuse what fits, and lift a deliberate visual difference into a prop rather than starting a second copy.
 
+On a touch screen `Button` and `Switch` keep their drawn geometry but answer taps across at least 44 × 44 px, Apple's minimum hit target, through an invisible centred layer: `Button` grows vertically only, so a button beside another control keeps its drawn width, while `Switch` grows on both axes because it is the row's only control and the text it reaches over is not interactive.
+
 | Export | What it is |
 |---|---|
 | `Button` | Clickable action; `variant` selects `primary`, `ghost`, `outline`, or `toolbar`. |
