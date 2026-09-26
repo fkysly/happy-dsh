@@ -263,10 +263,18 @@ describe('web e2e: settings modal and General preferences', () => {
     const [first, second] = [await tabs.nth(0).boundingBox(), await tabs.nth(1).boundingBox()]
     expect(second?.y).toBe(first?.y)
     const count = await tabs.count()
+    const scroller = dialog.locator('[class*="_options"]')
     for (let index = 0; index < count; index++) {
       await tabs.nth(index).click()
       await expect.poll(() => tabs.nth(index).getAttribute('aria-current')).toBe('true')
       expect(await overflowing()).toEqual([])
+      // The options column scrolls inside the panel, so its box must end inside
+      // the visible viewport: the panel clips its own overflow, and a column
+      // that grew to its content instead of being constrained put a tall
+      // section's last rows past the screen, where no gesture reached them.
+      const box = await scroller.boundingBox()
+      const bottom = box === null ? 0 : box.y + box.height
+      expect(Math.round(bottom), `section ${String(index)}`).toBeLessThanOrEqual(664)
     }
     const close = dialog.getByRole('button', { name: '关闭', exact: true })
     const closeBox = await close.boundingBox()
