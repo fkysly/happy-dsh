@@ -176,6 +176,22 @@
   cursor: default;
 }
 
+/* Touch screens: the chip answers taps across 44 CSS px of height, Apple's
+   minimum hit target, through an invisible layer that grows it vertically
+   only; the chip is already wider than 44px. The 12px gap below and the
+   title above leave room for the 8px it adds on each side. */
+@media (pointer: coarse) {
+  .workspace {
+    position: relative;
+  }
+
+  .workspace::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px)) 0;
+  }
+}
+
 .folder {
   flex: none;
   color: var(--dsw-alias-label-primary);

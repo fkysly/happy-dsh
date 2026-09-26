@@ -421,6 +421,26 @@
 }
 
 .standardControls { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+/* Touch screens: every toolbar button, including slot-contributed ones, keeps
+   its drawn size but answers taps across at least 44 × 44 CSS px, Apple's
+   minimum hit target. The invisible layer is centred on the button and only
+   ever grows it; the smallest button is 28px wide, so a layer reaches at most
+   8px sideways, which the 8px spacing between controls absorbs without the
+   layer covering a neighbour. The spacing stays as drawn: widening it would
+   collapse the model name to its icon on a phone. `:where` keeps the
+   positioning below any control's own `position`. */
+@media (pointer: coarse) {
+  :where(.row) button {
+    position: relative;
+  }
+
+  :where(.row) button::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px));
+  }
+}
 .tools[hidden], .standardControls[hidden] { display: none; }
 .trailingActive { flex: 1; margin-left: 0; }
 .activity { display: flex; align-items: center; flex: none; }

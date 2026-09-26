@@ -44,6 +44,21 @@
   color: var(--dsw-alias-label-quaternary);
 }
 
+/* Touch screens: the chip answers taps across 44 CSS px of height, Apple's
+   minimum hit target, through an invisible layer that grows it vertically
+   only, like the workspace chip beside it. */
+@media (pointer: coarse) {
+  .seat {
+    position: relative;
+  }
+
+  .seat::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px)) 0;
+  }
+}
+
 .seatIcon {
   flex: none;
   color: var(--dsw-alias-label-primary);
