@@ -26,4 +26,6 @@
   - switch "开发者工具" [checked]
   - text: 繁忙时的发送行为 智能体运行时 Enter 键和发送按钮的行为；Cmd/Ctrl+Enter 使用另一行为
   - button "排队发送"
+  - text: 在其他设备上登录 生成一次性登录码，用来在其他设备或主屏幕 App 上登录。
+  - button "生成登录码"
   - text: 当前版本：{{version}}
