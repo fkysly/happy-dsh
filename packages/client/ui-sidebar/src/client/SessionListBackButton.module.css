@@ -1,0 +1,35 @@
+/* The Session-list control exists only where the list is a screen rather than
+   a column: a narrow frame whose sidebar is closed. Both conditions are
+   attributes the frame publishes for its own solve, so the rule needs no
+   JavaScript state and cannot disagree with the layout it describes. */
+.listButton {
+  display: none;
+}
+
+/* macOS keeps its own toggle in the frame's window-chrome seat, beside the
+   traffic lights, so the header must not offer the same control twice. */
+:global(html:not([data-platform='darwin'])) [data-narrow][data-sidebar-collapsed] .listButton {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 0 8px 0 4px;
+  border: none;
+  border-radius: 999px;
+  corner-shape: round;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+:global(html:not([data-platform='darwin'])) [data-narrow][data-sidebar-collapsed] .listButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* Switching Sessions is the most frequent thing a phone user does here, so the
+   control names its destination the way a navigation bar's back button does. */
+.label {
+  white-space: nowrap;
+}

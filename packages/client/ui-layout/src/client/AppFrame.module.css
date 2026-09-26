@@ -81,6 +81,15 @@
   box-shadow: var(--dsw-elevation-prominent);
 }
 
+/* A narrow frame presents the list as its own screen, not as a panel of the
+   resolved preference width: there is nothing to read beside it, so the drawer
+   takes the frame whole. The wide form keeps the preference width and leaves
+   the Conversation visible behind the scrim. */
+.frame[data-sidebar-drawer][data-narrow] .sidebarCol {
+  width: 100%;
+  box-shadow: none;
+}
+
 /* Out of flow, the drawer no longer claims the first track, so auto-placement
    would shift the centre into that zero-width track. Pin the remaining columns
    to their own tracks. */
