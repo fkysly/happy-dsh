@@ -18,6 +18,8 @@ const EXIT_MS = 150
  * clicking it requests an immediate reconnect. The indicator animates in on
  * appearance and fades out for {@link EXIT_MS} before unmounting.
  * @param props.state - visible outage, retry-attempt, or recovered state.
+ * @param props.compact - render the glyph alone, for a host column too narrow
+ *   for the text label; the accessible name stays on the control.
  * @param props.disconnectedLabel - localized outage text naming the retry action.
  * @param props.connectingLabel - localized retry text followed by the attempt dots.
  * @param props.recoveredLabel - localized recovery confirmation.
@@ -34,6 +36,7 @@ export function ConnectionIndicator({
   reconnectActionLabel,
   restartActionLabel,
   onReconnect,
+  compact = false,
 }: {
   state: ConnectionIndicatorState | undefined
   disconnectedLabel: string
@@ -42,6 +45,7 @@ export function ConnectionIndicator({
   reconnectActionLabel: string
   restartActionLabel: string
   onReconnect: () => void
+  compact?: boolean
 }) {
   const [rendered, setRendered] = useState(state)
   const leaving = state === undefined && rendered !== undefined
@@ -57,15 +61,16 @@ export function ConnectionIndicator({
 
   if (rendered === undefined) return null
   const leavingClass = leaving ? ` ${css.leaving}` : ''
+  const compactClass = compact ? ` ${css.compact}` : ''
   if (rendered === 'recovered') {
     return (
       <div
-        className={`${css.indicator} ${css.success}${leavingClass}`}
+        className={`${css.indicator} ${css.success}${compactClass}${leavingClass}`}
         role="status"
         aria-label={recoveredLabel}
       >
         <span className={css.icon} aria-hidden="true"><IconCheckOutlineRegular size={14} /></span>
-        <span className={css.label}>{recoveredLabel}</span>
+        {!compact && <span className={css.label}>{recoveredLabel}</span>}
       </div>
     )
   }
@@ -74,7 +79,7 @@ export function ConnectionIndicator({
   return (
     <button
       type="button"
-      className={`${css.indicator} ${css.warning}${leavingClass}`}
+      className={`${css.indicator} ${css.warning}${compactClass}${leavingClass}`}
       data-phase={rendered}
       aria-label={connecting ? restartActionLabel : reconnectActionLabel}
       onClick={onReconnect}
@@ -84,20 +89,22 @@ export function ConnectionIndicator({
           ? <StateDot state="ongoing" />
           : <IconRefreshOutlineRegular size={14} />}
       </span>
-      <span className={css.label}>
-        {connecting
-          ? (
-            <>
-              {connectingLabel}
-              <span className={css.dots} aria-hidden="true">
-                <span>.</span>
-                <span className={css.secondDot}>.</span>
-                <span className={css.thirdDot}>.</span>
-              </span>
-            </>
-          )
-          : disconnectedLabel}
-      </span>
+      {!compact && (
+        <span className={css.label}>
+          {connecting
+            ? (
+              <>
+                {connectingLabel}
+                <span className={css.dots} aria-hidden="true">
+                  <span>.</span>
+                  <span className={css.secondDot}>.</span>
+                  <span className={css.thirdDot}>.</span>
+                </span>
+              </>
+            )
+            : disconnectedLabel}
+        </span>
+      )}
     </button>
   )
 }

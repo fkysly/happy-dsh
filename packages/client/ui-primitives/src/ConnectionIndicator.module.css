@@ -112,3 +112,27 @@
     transition: none;
   }
 }
+
+/* Glyph-only form for a host column too narrow to carry the label: the rail
+   reserves 36px for its controls, so the pill keeps the 28px height and the
+   tap target comes from the row it sits in. The accessible name still comes
+   from the control's own aria-label. */
+.compact {
+  grid-template-columns: 14px;
+  justify-content: center;
+  padding: 0 7px;
+}
+
+/* Touch screens: the glyph-only form is the only connection state a phone
+   shows, since the expanded sidebar is a drawer there, so it becomes a round
+   44-point target rather than a 30 x 28 chip. The rail's column is wide enough
+   for it once the row wraps the indicator under the Settings control. */
+@media (pointer: coarse) {
+  .compact {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 999px;
+    corner-shape: round;
+  }
+}
