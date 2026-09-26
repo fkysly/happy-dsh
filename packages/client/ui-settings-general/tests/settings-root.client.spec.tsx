@@ -248,9 +248,20 @@ describe('SettingsRoot trigger', () => {
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('keeps the reconnect indicator out of the collapsed rail', () => {
+  it('carries the reconnect indicator in the collapsed rail, without its label', () => {
+    // A phone keeps the sidebar as a closed drawer, so the rail is the only
+    // surface that can show the connection state there; it takes the compact
+    // form because the rail's column is narrower than the pill.
     mount({ wide: false, connectionState: 'disconnected' })
-    expect(screen.queryByRole('button', { name: 'Disconnected, reconnect now' })).toBeNull()
+    const rail = screen.getByRole('button', { name: 'Disconnected, reconnect now' })
+    expect(rail.textContent).toBe('')
+    expect(rail.querySelector('svg')).toBeTruthy()
+  })
+
+  it('keeps the label on the expanded sidebar', () => {
+    mount({ wide: true, connectionState: 'disconnected' })
+    expect(screen.getByRole('button', { name: 'Disconnected, reconnect now' }).textContent)
+      .toBe('Disconnected')
   })
 })
 

@@ -661,6 +661,31 @@ describe('ConnectionIndicator', () => {
     expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
   })
 
+  it('renders the glyph alone in its compact form, keeping the accessible name', () => {
+    const labels = {
+      disconnectedLabel: 'Disconnected, retry',
+      connectingLabel: 'Connecting',
+      recoveredLabel: 'Connected',
+      reconnectActionLabel: 'Disconnected, reconnect now',
+      restartActionLabel: 'Connecting, restart now',
+      onReconnect: vi.fn(),
+    }
+    const { container, rerender } = render(
+      <ConnectionIndicator state="disconnected" compact {...labels} />,
+    )
+    // The label is what the compact form drops; the name still reaches assistive
+    // technology, and the glyph is still the control's visible state.
+    const indicator = screen.getByRole('button', { name: 'Disconnected, reconnect now' })
+    expect(indicator.textContent).toBe('')
+    expect(indicator.querySelector('svg')).toBeTruthy()
+    expect(container.querySelector('[class*="_compact"]')).not.toBeNull()
+
+    rerender(<ConnectionIndicator state="recovered" compact {...labels} />)
+    const recovered = screen.getByRole('status', { name: 'Connected' })
+    expect(recovered.textContent).toBe('')
+    expect(recovered.querySelector('svg')).toBeTruthy()
+  })
+
   it('fades out for the exit duration before unmounting', () => {
     vi.useFakeTimers()
     try {
