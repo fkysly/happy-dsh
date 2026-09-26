@@ -1,0 +1,5 @@
+- text: Blocked Goal guard a blocked goal
+- button "Resume goal"
+- button "Edit goal"
+- button "Clear goal"
+- text: "Blocker: No progress in 3 rounds"

@@ -21,11 +21,12 @@
   isolation: isolate;
   box-sizing: border-box;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   width: 100%;
   max-width: calc(var(--dsh-composer-card-max-width) - 4 * var(--dsh-composer-dock-inset));
-  height: 36px;
+  min-height: 36px;
   margin: 0 auto;
   padding: 4px 5px 4px 12px;
   border: 0;
@@ -79,6 +80,20 @@
   color: var(--dsw-alias-state-error-primary);
   font-size: 12px;
   line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Why the goal stopped: the second line of the strip. It takes a full row of
+   its own (flex order puts it after the actions, the 100% basis wraps it)
+   because the objective and the phase label already share the first one. */
+.blocker {
+  order: 1;
+  flex: 0 0 100%;
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -139,4 +154,25 @@
 .iconBtn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* Touch screens: the strip's buttons keep their drawn 28px size but answer
+   taps across at least 44 × 44, Apple's minimum hit target, through an
+   invisible centred layer. The actions' gap doubles to 16px so two
+   neighbouring layers meet without overlapping; nothing between the button and
+   the composer stack clips the layer, so it reaches past the 36px strip. */
+@media (pointer: coarse) {
+  .actions {
+    gap: 16px;
+  }
+
+  :where(.bar) button {
+    position: relative;
+  }
+
+  :where(.bar) button::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px));
+  }
 }
