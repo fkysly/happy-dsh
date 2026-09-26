@@ -588,11 +588,40 @@
   }
 }
 
-/* Touch screens: the rail's workspace controls keep their drawn 36px size but
-   answer taps across at least 44 × 44 (see ui-sidebar SidebarRoot.module.css).
-   The collapsed search frame stops clipping so its button's layer reaches
-   past it; in the rail the button draws its own rounding. */
+/* Touch screens: two shapes, because the rail and the drawer differ.
+
+   Drawer: the search frame and the two action buttons are drawn at 44 points
+   and the row grows to hold them, so no hit layer has to escape an ancestor
+   that clips. Every one of them paints only its glyph over a transparent
+   background, so the larger box changes no pixel at rest. The `:not()` guards
+   leave the collapse states in charge: an expanded search owns the full row,
+   and a hidden action cluster still animates to zero.
+
+   Rail: the controls keep their drawn 36px size but answer taps across at
+   least 44 × 44 (see ui-sidebar SidebarRoot.module.css). The collapsed search
+   frame stops clipping so its button's layer reaches past it; in the rail the
+   button draws its own rounding. */
 @media (pointer: coarse) {
+  .root:not(.rail) .sectionHeader {
+    min-height: 44px;
+  }
+
+  .root:not(.rail) .searchSlot:not(.searchSlotExpanded) {
+    max-width: 44px;
+  }
+
+  .root:not(.rail) .search,
+  .root:not(.rail) .searchButton,
+  .root:not(.rail) .iconButton {
+    width: 44px;
+    height: 44px;
+  }
+
+  .root:not(.rail) .headerActions:not(.headerActionsHidden) {
+    gap: 8px;
+    max-width: 96px;
+  }
+
   .rail .search,
   .rail .sectionHeader,
   .rail .headerActions {

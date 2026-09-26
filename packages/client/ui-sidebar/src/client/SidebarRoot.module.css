@@ -620,4 +620,20 @@
     position: absolute;
     inset: min(0px, calc(50% - 22px));
   }
+
+  /* Expanded drawer: these are the controls a phone user navigates by, and
+     every one of them paints nothing but its glyph or label over a transparent
+     background, so drawing them at 44 points changes no pixel at rest and
+     leaves the layout free of oversized hit layers. The rail keeps its drawn
+     36px with the centred layers above. */
+  .root:not(.collapsed) .brand,
+  .root:not(.collapsed) .newSession,
+  .root:not(.collapsed) .panelRow {
+    min-height: 44px;
+  }
+
+  .root:not(.collapsed) .iconButton {
+    width: 44px;
+    height: 44px;
+  }
 }

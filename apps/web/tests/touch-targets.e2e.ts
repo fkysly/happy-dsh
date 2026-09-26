@@ -11,6 +11,8 @@ import { saveFailureShot } from './support.ts'
 
 const MODE = webSnapshotMode()
 const RAIL_CONTROLS = ['Open sidebar', 'New session', 'Plugins', 'Add workspace', 'Search sessions', 'Settings']
+/** Controls the expanded drawer shows; two of them are named New session. */
+const DRAWER_CONTROLS = ['Collapse sidebar', 'Search sessions', 'View options', 'Add workspace', 'Plugins', 'Settings', 'New session']
 
 interface HitReport {
   readonly label: string
@@ -56,6 +58,46 @@ function probe(page: Page, labels: readonly string[]): Promise<HitReport[]> {
   }), labels)
 }
 
+/**
+ * Measure every control carrying one of the named labels, including repeated
+ * names, and prove the drawn box belongs to that control. The drawer shows two
+ * New Session controls (the brand row and the button below it), and both must
+ * stand on their own.
+ *
+ * Only the centre and the four edge midpoints are sampled: these controls are
+ * drawn as circles, and a circle's corners are outside the shape by design, so
+ * a corner sample would report a miss for a control that is already correct.
+ * @param page - page showing the controls.
+ * @param labels - accessible names of the controls to test.
+ * @returns one report per matching control, in document order.
+ */
+function probeDrawn(page: Page, labels: readonly string[]): Promise<HitReport[]> {
+  return page.evaluate(names => names.flatMap((label) => {
+    const controls = [...document.querySelectorAll('button')]
+      .filter(button => button.getAttribute('aria-label') === label && button.getBoundingClientRect().width > 0)
+    if (controls.length === 0) throw new Error(`no visible control named ${label}`)
+    return controls.map((control, index) => {
+      const rect = control.getBoundingClientRect()
+      const cx = rect.x + rect.width / 2
+      const cy = rect.y + rect.height / 2
+      const reaches = ([x, y]: readonly [number, number]): boolean => {
+        const hit = document.elementFromPoint(x, y)
+        return hit !== null && (hit === control || control.contains(hit))
+      }
+      const name = ([x, y]: readonly [number, number]): string => `${String(Math.round(x))},${String(Math.round(y))}`
+      const samples: [number, number][] = [
+        [cx, cy], [cx, rect.y + 1], [cx, rect.bottom - 1], [rect.x + 1, cy], [rect.right - 1, cy],
+      ]
+      return {
+        label: `${label}#${String(index)}`,
+        drawn: [Math.round(rect.width), Math.round(rect.height)] as const,
+        misses: samples.filter(point => !reaches(point)).map(name),
+        stolen: [],
+      }
+    })
+  }), labels)
+}
+
 describe.skipIf(MODE === 'record')('web e2e: touch hit areas', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -85,6 +127,24 @@ describe.skipIf(MODE === 'record')('web e2e: touch hit areas', () => {
       expect(report.drawn, report.label).toEqual([36, 36])
       expect(report.misses, report.label).toEqual([])
       expect(report.stolen, report.label).toEqual([])
+    }
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
+  it('draws every expanded-drawer control at the 44-point minimum', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-touch-targets-drawer'))
+    await page.getByRole('button', { name: 'Open sidebar' }).first().click()
+    await page.getByRole('button', { name: 'Collapse sidebar' }).waitFor({ timeout: 10_000 })
+
+    // Unlike the rail, the drawer draws its controls at the minimum instead of
+    // growing a hidden layer: every one of them paints nothing but its glyph or
+    // label over a transparent background, so the target and the drawn box are
+    // the same 44 × 44 and no ancestor has to stop clipping. A circle is round,
+    // so this case proves the drawn box rather than a corner-to-corner square.
+    for (const report of await probeDrawn(page, DRAWER_CONTROLS)) {
+      expect(report.drawn[0], report.label).toBeGreaterThanOrEqual(44)
+      expect(report.drawn[1], report.label).toBeGreaterThanOrEqual(44)
+      expect(report.misses, report.label).toEqual([])
     }
     expect(tripwire.pageErrors).toEqual([])
   })
