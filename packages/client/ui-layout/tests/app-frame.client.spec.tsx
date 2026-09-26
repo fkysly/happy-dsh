@@ -319,24 +319,27 @@ describe('AppFrame normal width concessions', () => {
     expect(instance.getSnapshot().layoutInfo).toMatchObject({ rightbarShown: true, rightbar: 864 })
     act(() => { instance.actions.closeRightbar() })
     resize(455)
-    expect(tracks(frame)).toEqual([56, 0])
+    // A narrow frame keeps no rail: the collapsed column is zero wide.
+    expect(tracks(frame)).toEqual([0, 0])
     resize(1920)
     expect(tracks(frame)).toEqual([420, 0])
   })
 
-  it('uses the post-collapse left rail to permit a narrow first opening', () => {
+  it('uses the post-collapse left column to permit a narrow first opening', () => {
     frameWidth = 800
     const { frame, instance, rightOwner } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)).toEqual([280, 0])
-    expect(rightOwner()).toEqual({ width: 344, viewportWidth: 800, canShow: true })
+    // The eligibility solve prices the collapsed column, which a narrow frame
+    // no longer draws: 56px more is available to concede.
+    expect(rightOwner()).toEqual({ width: 360, viewportWidth: 800, canShow: true })
     act(() => { instance.actions.openRightbar(true, false) })
-    expect(tracks(frame)).toEqual([56, 360])
+    expect(tracks(frame)).toEqual([0, 360])
     expect(instance.getSnapshot().layoutInfo).toMatchObject({ narrowExpanded: false, rightbar: 360 })
     expect(rightOwner().canShow).toBe(true)
   })
 
-  it.each([[756, 300, true], [755, 0, false]] as const)('reports eligibility at %ipx', (width, rightbar, canShow) => {
+  it.each([[700, 300, true], [699, 0, false]] as const)('reports eligibility at %ipx', (width, rightbar, canShow) => {
     frameWidth = width
     const { instance, rightOwner } = mountFrame()
     act(() => { instance.actions.toggleSidebar() })
@@ -356,13 +359,13 @@ describe('AppFrame normal width concessions', () => {
     resize(1024)
     expect(tracks(frame)[0]).toBe(400)
     resize(1023)
-    expect(tracks(frame)[0]).toBe(56)
+    expect(tracks(frame)[0]).toBe(0)
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)[0]).toBe(400)
     resize(980)
     expect(tracks(frame)[0]).toBe(400)
     act(() => { instance.actions.toggleSidebar() })
-    expect(tracks(frame)[0]).toBe(56)
+    expect(tracks(frame)[0]).toBe(0)
     resize(1920)
     expect(tracks(frame)[0]).toBe(400)
   })
@@ -395,11 +398,13 @@ describe('AppFrame overlay sidebar', () => {
     expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
   })
 
-  it('keeps the rail and no scrim while the drawer is closed', () => {
+  it('keeps the closed sidebar away and draws no scrim while the drawer is closed', () => {
     frameWidth = 390
     const { frame } = mountFrame()
     expect(frame.dataset.sidebarDrawer).toBeUndefined()
-    expect(tracks(frame)[0]).toBe(56)
+    // Nothing occupies the column: the Conversation owns the frame, and the
+    // header's own control is what reaches the Session list from here.
+    expect(tracks(frame)[0]).toBe(0)
     expect(frame.querySelector('[data-sidebar-scrim]')).toBeNull()
   })
 
@@ -408,7 +413,7 @@ describe('AppFrame overlay sidebar', () => {
     act(() => { frame.querySelector<HTMLElement>('[data-sidebar-scrim]')!.click() })
     expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
     expect(frame.dataset.sidebarDrawer).toBeUndefined()
-    expect(tracks(frame)[0]).toBe(56)
+    expect(tracks(frame)[0]).toBe(0)
   })
 
   it('closes when the Session shown in the centre changes', () => {
@@ -561,11 +566,13 @@ describe('AppFrame right panel presentation', () => {
   })
 
   it('retains fullscreen without a track when normal columns cannot fit', () => {
-    frameWidth = 700
+    // One pixel under the width that fits: the normal columns cannot hold the
+    // right panel, so the fullscreen flag survives while no track appears.
+    frameWidth = 699
     const { frame, instance, rightOwner } = mountFrame()
     act(() => { instance.actions.openRightbar(false, true) })
-    expect(tracks(frame)).toEqual([56, 0])
-    expect(rightOwner()).toEqual({ width: 0, viewportWidth: 700, canShow: false })
+    expect(tracks(frame)).toEqual([0, 0])
+    expect(rightOwner()).toEqual({ width: 0, viewportWidth: 699, canShow: false })
     expect(instance.getSnapshot().layoutInfo.rightbarShown).toBe(true)
     expect(frame.querySelector('[data-side="rightbar"]')).toBeNull()
   })

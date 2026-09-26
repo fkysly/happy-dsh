@@ -209,7 +209,13 @@ export function AppFrame({
   // Desktop reopen controls occupy the frame's shell.leading seat (macOS) or
   // the Windows caption row; neither platform keeps an icon rail.
   const darwin = document.documentElement.dataset.platform === 'darwin'
-  const collapsedWidth = darwin
+  // A narrow frame keeps no rail either: the collapsed column is a desktop
+  // affordance, and on a phone it spent 56px of the reading width on a strip
+  // of unlabelled glyphs. There the closed sidebar is simply away, the centre
+  // owns the frame, and the Conversation header carries the control that
+  // brings the Session list back. macOS and the Windows caption row already
+  // reach their reopen control without a rail, so this joins them.
+  const collapsedWidth = darwin || narrow
     || document.documentElement.hasAttribute('data-windows-titlebar') ? 0 : SIDEBAR_COLLAPSED
   // Opening on a narrow frame collapses the left sidebar. Eligibility must
   // include that space before the occupant's first shown report arrives.
@@ -286,6 +292,11 @@ export function AppFrame({
   // whole and was corrected two frames later — visible jitter. cols keeps only
   // the discrete decisions (track present, collapse state) and the drag base.
   const rightbarMax = cols.rightbar === 0 ? 0 : clampWidth(rightbarPreference, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO)
+  // The occupant renders when the sidebar is open (a column or the drawer), or
+  // when a collapsed rail has width to draw into. A zero-width column would
+  // otherwise keep the rail's controls in the document — unreachable by pointer
+  // because the column clips them, but still focusable and announced.
+  const sidebarVisible = !sidebarCollapsed || collapsedWidth > 0
   const sidebar = useMemo(() => renderSlot('sidebar', {
     collapsed: sidebarCollapsed,
     width: cols.sidebar,
@@ -314,6 +325,7 @@ export function AppFrame({
           `${sidebarTrack}px minmax(${cols.rightbar === 0 ? 0 : CENTER_MIN}px, 1fr) minmax(0px, ${rightbarMax}px)`,
       }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
+      data-narrow={narrow || undefined}
       data-sidebar-drawer={drawer || undefined}
       data-rightbar-collapsed={cols.rightbar === 0 || undefined}
       data-rightbar-fullscreen={layoutInfo.rightbarFullscreen || undefined}
@@ -334,7 +346,7 @@ export function AppFrame({
       <DrawerNavigationClose useSessions={useSessions} onNavigate={actions.collapseOverlaySidebar} />
       {drawer && <div className={css.scrim} data-sidebar-scrim aria-hidden="true" onClick={actions.collapseOverlaySidebar} />}
       <div className={css.sidebarCol}>
-        {sidebar}
+        {sidebarVisible ? sidebar : null}
       </div>
       <>
         <CenterColumn>{main}</CenterColumn>
