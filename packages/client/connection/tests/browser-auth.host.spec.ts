@@ -63,6 +63,8 @@ function createAuth(
 function request(url: string, authority = '127.0.0.1:3080', init?: {
   cookie?: string
   method?: string
+  accept?: string
+  acceptLanguage?: string
 }): ConnectionIndexRequest {
   return {
     method: init?.method ?? 'GET',
@@ -70,8 +72,22 @@ function request(url: string, authority = '127.0.0.1:3080', init?: {
     headers: {
       host: authority,
       ...init?.cookie === undefined ? {} : { cookie: init.cookie },
+      ...init?.accept === undefined ? {} : { accept: init.accept },
+      ...init?.acceptLanguage === undefined ? {} : { 'accept-language': init.acceptLanguage },
     },
   }
+}
+
+/** A browser navigation: what Safari and a Home Screen web app send for a page load. */
+const NAVIGATION_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+
+/** Redeem a sign-in code the way the sign-in form submits it. */
+function redeem(auth: BrowserAuth, code: string, init?: Parameters<typeof request>[2]): ResponseState {
+  const res = response()
+  expect(auth.authorizeIndex(request(`/?code=${encodeURIComponent(code)}`, '127.0.0.1:3080', {
+    accept: NAVIGATION_ACCEPT, ...init,
+  }), res.value)).toBe(false)
+  return res.state
 }
 
 function exchange(
@@ -289,5 +305,123 @@ describe('BrowserAuth', () => {
 
     await expect(createAuth(new RecordCredentials(), Number.MAX_SAFE_INTEGER))
       .rejects.toThrow(/safe timestamp range/u)
+  })
+})
+
+describe('BrowserAuth sign-in codes', () => {
+  it('signs a browser in once with a code, then refuses the same code', async () => {
+    const auth = await createAuth(new RecordCredentials())
+    const { code, expiresAt } = auth.createSignInCode()
+    expect(code).toMatch(/^[A-Za-z0-9_-]{43}$/u)
+    expect(expiresAt - Date.now()).toBeGreaterThan(9 * 60 * 1000)
+
+    const first = redeem(auth, code)
+    expect(first).toMatchObject({
+      status: 303,
+      headers: { 'cache-control': 'no-store', 'location': './', 'referrer-policy': 'no-referrer' },
+    })
+    const cookie = first.headers?.['set-cookie']?.split(';', 1)[0]
+    if (cookie === undefined) throw new Error('code exchange did not set a cookie')
+    // The same session cookie the launch token mints.
+    expect(first.headers?.['set-cookie']).toMatch(/; Max-Age=2592000; Path=\/; Expires=.*; HttpOnly; SameSite=Strict$/u)
+    expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(true)
+
+    const again = redeem(auth, code)
+    expect(again.status).toBe(401)
+    expect(again.body).toContain('role="alert"')
+  })
+
+  it('expires a code ten minutes after creating it', async () => {
+    vi.useFakeTimers()
+    const auth = await createAuth(new RecordCredentials())
+    const kept = auth.createSignInCode().code
+    const expired = auth.createSignInCode().code
+    const stale = auth.createSignInCode().code
+    vi.advanceTimersByTime(10 * 60 * 1000 - 1)
+    expect(redeem(auth, kept).status).toBe(303)
+    vi.advanceTimersByTime(1)
+    expect(redeem(auth, expired).status).toBe(401)
+    // Creating a code after expiry discards the stale ones it finds.
+    expect(redeem(auth, auth.createSignInCode().code).status).toBe(303)
+    expect(redeem(auth, stale).status).toBe(401)
+  })
+
+  it('keeps at most five unused codes, dropping the oldest', async () => {
+    const auth = await createAuth(new RecordCredentials())
+    const codes = Array.from({ length: 6 }, () => auth.createSignInCode().code)
+    expect(redeem(auth, codes[0]!).status).toBe(401)
+    for (const code of codes.slice(1)) expect(redeem(auth, code).status).toBe(303)
+  })
+
+  it('does not burn a valid code on a request that cannot sign in', async () => {
+    const auth = await createAuth(new RecordCredentials())
+    const { code } = auth.createSignInCode()
+    const token = new URL(auth.authenticatedUrl('http://127.0.0.1:3080')).searchParams.get('token')
+    for (const candidate of [
+      request(`/?code=${code}`, '127.0.0.1:3080', { method: 'HEAD' }),
+      request(`/index.html?code=${code}`),
+      request(`/?code=${code}&code=${code}`),
+      request(`/?code=${code}&token=${String(token)}`),
+      { method: 'GET', url: `/?code=${code}`, headers: {} },
+    ]) {
+      const denied = response()
+      expect(auth.authorizeIndex(candidate, denied.value)).toBe(false)
+      expect(denied.state.status).toBe(401)
+    }
+    expect(redeem(auth, code).status).toBe(303)
+  })
+
+  it('keeps codes across a Connection reload but not across a process restart', async () => {
+    const store = new RecordCredentials()
+    const processOwner = {}
+    const first = await createAuth(store, 30, processOwner)
+    const kept = first.createSignInCode().code
+    const lost = first.createSignInCode().code
+    expect(redeem(await createAuth(store, 30, processOwner), kept).status).toBe(303)
+    expect(redeem(await createAuth(store), lost).status).toBe(401)
+  })
+
+  it('refuses to create a code when the deployment turns browser sign-in off', async () => {
+    const auth = await createAuth(new RecordCredentials(), 30, {}, false)
+    expect(() => auth.createSignInCode()).toThrow(/turns off/u)
+  })
+})
+
+describe('BrowserAuth sign-in page', () => {
+  it('answers a signed-out browser navigation with a sign-in form', async () => {
+    const auth = await createAuth(new RecordCredentials())
+    const res = response()
+    expect(auth.authorizeIndex(request('/', '127.0.0.1:3080', { accept: NAVIGATION_ACCEPT }), res.value)).toBe(false)
+    expect(res.state.status).toBe(401)
+    expect(res.state.headers).toEqual({
+      'cache-control': 'no-store',
+      'content-type': 'text/html; charset=utf-8',
+      'referrer-policy': 'no-referrer',
+    })
+    const page = res.state.body ?? ''
+    expect(page).toContain('<html lang="en">')
+    expect(page).toContain('<h1>Sign in to Happy-DSH</h1>')
+    expect(page).toContain('<form method="get" action="./">')
+    expect(page).toMatch(/<input id="code" name="code" required autocomplete="one-time-code"/u)
+    expect(page).not.toContain('role="alert"')
+    // Self-contained: nothing to load before the user can sign in.
+    expect(page).not.toMatch(/<script|<link|src=/u)
+  })
+
+  it('follows a Chinese Accept-Language', async () => {
+    const auth = await createAuth(new RecordCredentials())
+    const res = response()
+    auth.authorizeIndex(request('/', '127.0.0.1:3080', {
+      accept: NAVIGATION_ACCEPT, acceptLanguage: 'zh-CN,zh;q=0.9,en;q=0.8',
+    }), res.value)
+    expect(res.state.body).toContain('<html lang="zh-CN">')
+    expect(res.state.body).toContain('<h1>登录 Happy-DSH</h1>')
+  })
+
+  it('explains a code that did not work', async () => {
+    const auth = await createAuth(new RecordCredentials())
+    const page = redeem(auth, 'not-a-code').body ?? ''
+    expect(page).toContain('aria-invalid="true"')
+    expect(page).toContain('That code didn’t work.')
   })
 })

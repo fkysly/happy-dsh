@@ -95,6 +95,45 @@ async function request(port: number, path: string, init?: RequestInit): Promise<
 }
 
 describe('real Loader composition', () => {
+  it('signs a second browser in with a one-time code from a signed-in one', { timeout: 60_000 }, async () => {
+    const loaded = await loadComposition()
+    const port = loaded.webServer.port
+    const origin = `http://127.0.0.1:${String(port)}`
+    const exchange = await fetch(loaded.connection.authenticatedUrl(origin), { redirect: 'manual' })
+    const signedIn = exchange.headers.get('set-cookie')?.split(';', 1)[0]
+    if (signedIn === undefined) throw new Error('launch token did not set a cookie')
+    const navigation = { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' }
+
+    // Only a signed-in browser can create a code.
+    const refused = await fetch(`${origin}${Connection.SIGN_IN_CODE_PATH}`, { method: 'POST', headers: { origin } })
+    expect(refused.status).toBe(401)
+    const created = await fetch(`${origin}${Connection.SIGN_IN_CODE_PATH}`, {
+      method: 'POST', headers: { origin, cookie: signedIn },
+    })
+    expect(created.status).toBe(200)
+    expect(created.headers.get('cache-control')).toBe('no-store')
+    const { code } = await created.json() as Connection.SignInCode
+
+    // The second browser has no cookie: its navigation gets the sign-in page.
+    const page = await request(port, '/', { headers: navigation })
+    expect(page).toMatchObject({ status: 401, type: 'text/html; charset=utf-8' })
+    expect(page.body).toContain('<form method="get" action="./">')
+
+    // Submitting the form redeems the code for a session cookie.
+    const redeemed = await fetch(`${origin}/?code=${encodeURIComponent(code)}`, { redirect: 'manual', headers: navigation })
+    expect(redeemed.status).toBe(303)
+    expect(redeemed.headers.get('location')).toBe('./')
+    const second = redeemed.headers.get('set-cookie')?.split(';', 1)[0]
+    if (second === undefined) throw new Error('sign-in code did not set a cookie')
+    expect(await request(port, '/', { headers: { ...navigation, cookie: second } }))
+      .toMatchObject({ status: 200, body: expect.stringContaining('shell') as unknown })
+
+    // The code works once.
+    const reused = await request(port, `/?code=${encodeURIComponent(code)}`, { headers: navigation })
+    expect(reused.status).toBe(401)
+    expect(reused.body).toContain('role="alert"')
+  })
+
   it('serves explicit index entries and files while preserving HTTP error semantics', { timeout: 60_000 }, async () => {
     const loaded = await loadComposition()
     const unloaded = [...loaded.loader.entries()]

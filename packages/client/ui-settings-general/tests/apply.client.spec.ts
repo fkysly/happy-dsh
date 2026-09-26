@@ -14,6 +14,7 @@ import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { LOCALE_SETTINGS_NAMESPACE, LocaleSettingsSchema } from '@deepseek-ai/dsh-client-locale/src/locale-settings.ts'
 import { inject } from '../src/client/index.ts'
 import type { DeveloperToolsRowInjected } from '../src/client/DeveloperToolsRow.tsx'
+import type { SignInCodeRowInjected } from '../src/client/SignInCodeRow.tsx'
 import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.tsx'
 import { GeneralSection } from '../src/client/GeneralSection.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
@@ -102,7 +103,7 @@ describe('ui-settings-general apply', () => {
     expect(generalLabel(c)).toBe('通用设置')
     expect(c.ctx.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
     // The shared developer-tool control belongs to General; onboarding remains feature-owned.
-    expect(c.ctx.slots.entries('settings.general.item').filter(row => row.locale === NS).map(row => row.options.id)).toEqual(['developer-tools', 'current-version'])
+    expect(c.ctx.slots.entries('settings.general.item').filter(row => row.locale === NS).map(row => row.options.id)).toEqual(['developer-tools', 'sign-in-code', 'current-version'])
     expect(c.ctx.slots.entries('settings.onboarding').filter(row => row.locale === NS)).toEqual([])
     const developerRow = c.ctx.slots.entries('settings.general.item').find(row => row.options.id === 'developer-tools')!
     const developer = (developerRow.inject as unknown as () => DeveloperToolsRowInjected)()
@@ -111,6 +112,13 @@ describe('ui-settings-general apply', () => {
     const setEnabled = vi.spyOn(c.ctx.configForms.developerTools, 'setEnabled').mockResolvedValue(undefined)
     await developer.setEnabled(true)
     expect(setEnabled).toHaveBeenCalledExactlyOnceWith(true)
+    // The sign-in code row asks the Connection, which owns the Host route.
+    const signInRow = c.ctx.slots.entries('settings.general.item').find(row => row.options.id === 'sign-in-code')!
+    const createFromRow = signInRow.inject?.().createSignInCode as SignInCodeRowInjected['createSignInCode']
+    const created = { code: 'from-connection', expiresAt: 1 }
+    const createSignInCode = vi.spyOn(c.connection, 'createSignInCode').mockResolvedValue(created)
+    expect(await createFromRow()).toBe(created)
+    expect(createSignInCode).toHaveBeenCalledOnce()
     const { controller, hooks } = actionInjectedOf(c)
     expect(controller.store.getSnapshot().status).toBe('idle')
     expect(hooks.snapshot).toBe(controller.store)
@@ -213,7 +221,7 @@ describe('ui-settings-general apply', () => {
       expect(ownEntries(c, name)[0]).not.toBe(before[index])
     })
     expect(c.ctx.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
-    expect(c.ctx.slots.entries('settings.general.item').filter(row => row.locale === NS).map(row => row.options.id)).toEqual(['developer-tools', 'current-version'])
+    expect(c.ctx.slots.entries('settings.general.item').filter(row => row.locale === NS).map(row => row.options.id)).toEqual(['developer-tools', 'sign-in-code', 'current-version'])
     // The recovered registrations still ride the locale path.
     const english = localeView('en', 1)
     const chinese = localeView('zh', 2)

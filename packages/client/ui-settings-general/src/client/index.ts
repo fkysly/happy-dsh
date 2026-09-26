@@ -31,6 +31,7 @@ import { CloseLabel, HeaderContent, TriggerContent } from './chrome.tsx'
 import { GeneralSection } from './GeneralSection.tsx'
 import { CurrentVersionRow } from './CurrentVersionRow.tsx'
 import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperToolsRow.tsx'
+import { SignInCodeRow, type SignInCodeRowInjected } from './SignInCodeRow.tsx'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from './settings-document-store.ts'
@@ -77,6 +78,12 @@ export function apply(ctx: ClientContext): void {
       setEnabled: enabled => ctx.configForms.developerTools.setEnabled(enabled),
     }),
   }, DeveloperToolsRow))
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item', id: 'sign-in-code', order: 90, locale: NS,
+    inject: (): SignInCodeRowInjected => ({
+      createSignInCode: () => (ctx.get('connection') as ConnectionHandle).createSignInCode(),
+    }),
+  }, SignInCodeRow))
   // Last row: every feature-registered preference row orders below 100.
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'current-version', order: 100, locale: NS,

@@ -693,3 +693,40 @@ describe('connection client apply', () => {
   })
 
 })
+
+describe('connection sign-in codes', () => {
+  it('posts to the page-relative sign-in code route and returns the validated code', async () => {
+    const fetch = vi.fn<RpcFetch>(() => Promise.resolve(Response.json({ code: 'abc', expiresAt: 1_000 })))
+    vi.stubGlobal('fetch', fetch)
+    const handle = await mount()
+    expect(await handle.createSignInCode()).toEqual({ code: 'abc', expiresAt: 1_000 })
+    expect(fetch).toHaveBeenCalledWith('api/connection.signInCode', { method: 'POST' })
+  })
+
+  it('uses the carrier fetch when the transport supplies one', async () => {
+    const fetch = vi.fn<RpcFetch>(() => Promise.resolve(Response.json({ code: 'carried', expiresAt: 2 })))
+    ;(globalThis as Win).__DSH_TRANSPORT__ = { fetch }
+    expect(await (await mount()).createSignInCode()).toEqual({ code: 'carried', expiresAt: 2 })
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports no codes when the Host does not require browser sign-in', async () => {
+    vi.stubGlobal('fetch', vi.fn<RpcFetch>(() => Promise.resolve(new Response('not found', { status: 404 }))))
+    expect(await (await mount()).createSignInCode()).toBeUndefined()
+  })
+
+  it('rejects a refused request and a malformed code', async () => {
+    const responses = [
+      new Response('unauthorized', { status: 401 }),
+      Response.json(null),
+      Response.json({ code: '', expiresAt: 1 }),
+      Response.json({ code: 'x', expiresAt: 'soon' }),
+      Response.json({ code: 'x', expiresAt: Number.POSITIVE_INFINITY }),
+    ]
+    vi.stubGlobal('fetch', vi.fn<RpcFetch>(() => Promise.resolve(responses.shift()!)))
+    const handle = await mount()
+    await expect(handle.createSignInCode()).rejects.toThrow('HTTP 401')
+    await expect(handle.createSignInCode()).rejects.toThrow('not an object')
+    for (let i = 0; i < 3; i++) await expect(handle.createSignInCode()).rejects.toThrow('malformed')
+  })
+})

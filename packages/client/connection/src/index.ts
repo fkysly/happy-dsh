@@ -6,7 +6,7 @@ import type {} from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-credentials'
 // Activates the webServer Context merge used below.
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { API_PATH } from './api-path.ts'
+import { API_PATH, SIGN_IN_CODE_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
 import { BrowserAuth } from './browser-auth.ts'
@@ -49,7 +49,8 @@ export {
 } from './rpc-schema.ts'
 export { HostConnectionService } from './rpc-host.ts'
 
-export { API_PATH } from './api-path.ts'
+export { API_PATH, SIGN_IN_CODE_PATH } from './api-path.ts'
+export type { SignInCode } from './api-path.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'client-connection'
@@ -156,11 +157,21 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
-  const connection = new HostConnectionService(
-    ctx,
-    trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, requireBrowserAuth),
-  )
+  const browserAuth = await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, requireBrowserAuth)
+  const connection = new HostConnectionService(ctx, trustedHosts, browserAuth)
+  // A signed-in browser hands a one-time code to one that cannot open the
+  // launch URL (a Home Screen web app keeps its own cookies). The route sits
+  // behind the /api fence, so only an authenticated request can create one.
+  if (requireBrowserAuth) {
+    connection.fetch.register({
+      path: SIGN_IN_CODE_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: () => Promise.resolve(Response.json(browserAuth.createSignInCode(), {
+        headers: { 'cache-control': 'no-store' },
+      })),
+    })
+  }
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
     webCtx.on('webserver/index-inject', (table) => {

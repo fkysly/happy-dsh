@@ -12,6 +12,7 @@ import { createWebConnectionRpc, type RpcFetch, type RpcStreamOpen } from './rpc
 import { isLoopbackHostname } from '../loopback-hostname.ts'
 import type { ClientConnectionRpc } from '../rpc.ts'
 import { resolveConnectionConfig } from '../recovery-config.ts'
+import { SIGN_IN_CODE_PATH, type SignInCode } from '../api-path.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -35,6 +36,23 @@ export {
   RpcId,
   transportError,
 } from './api.ts'
+
+export type { SignInCode } from '../api-path.ts'
+
+/**
+ * Validate the sign-in code the Host returned (a wire boundary).
+ * @param value - decoded JSON response body.
+ * @returns the code and its expiry.
+ * @throws when the body is not a sign-in code.
+ */
+function parseSignInCode(value: unknown): SignInCode {
+  if (typeof value !== 'object' || value === null) throw new Error('connection: sign-in code response is not an object')
+  const { code, expiresAt } = value as Partial<Record<keyof SignInCode, unknown>>
+  if (typeof code !== 'string' || code === '' || typeof expiresAt !== 'number' || !Number.isFinite(expiresAt)) {
+    throw new Error('connection: sign-in code response is malformed')
+  }
+  return { code, expiresAt }
+}
 
 // Connection loop types are public through ConnectionHandle.start; the
 // controller remains package-internal.
@@ -158,6 +176,15 @@ export interface ConnectionHandle {
   readonly rpc: ClientConnectionRpc
   /** Reset retry progression and replace the current attempt immediately. */
   reconnect(): void
+  /**
+   * Ask the Host for a one-time code that signs another browser in — one that
+   * cannot open the launch URL, such as a Home Screen web app, whose cookies
+   * are separate from the browser's.
+   * @returns the code and its expiry, or undefined when the Host does not
+   *   require browser sign-in and so offers no codes.
+   * @throws when the request fails or the Host answers with anything else.
+   */
+  createSignInCode(): Promise<SignInCode | undefined>
   /**
    * Register the sole source defining Host generations. The source reports
    * ready only after its incremental listeners are attached.
@@ -316,6 +343,16 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
     rpc,
     reconnect() {
       owner?.controller.reconnect()
+    },
+    async createSignInCode() {
+      const send: RpcFetch = transport?.fetch ?? ((input, init) => globalThis.fetch(input, init))
+      // Relative to the page, so a mounted deployment reaches its own /api.
+      const response = await send(SIGN_IN_CODE_PATH.slice(1), { method: 'POST' })
+      if (response.status === 404) return undefined
+      if (!response.ok) {
+        throw new Error(`connection: creating a sign-in code failed with HTTP ${String(response.status)}`)
+      }
+      return parseSignInCode(await response.json())
     },
     registerGenerationSource(source) {
       if (generationSource !== undefined) {
