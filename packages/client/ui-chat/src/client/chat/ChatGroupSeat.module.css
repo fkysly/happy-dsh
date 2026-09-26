@@ -80,10 +80,30 @@
 }
 
 .label {
+  flex: none;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Live reasoning detail: the secondary tier, exactly as the settled reasoning
+   row renders its own summary, and outside the shimmer — the activity is what
+   is running, not the sentence it is on. It yields width to the title. */
+.detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.separator {
+  flex: none;
+  color: var(--dsw-alias-label-caption);
 }
 
 .fadeTop {
