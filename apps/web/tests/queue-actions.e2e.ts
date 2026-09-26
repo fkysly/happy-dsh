@@ -406,7 +406,12 @@ describe('web e2e: queue row actions', () => {
     await expect.poll(() => removeButtons.count(), { timeout: 10_000 }).toBe(1)
     await removeButtons.first().click()
     await expect.poll(() => page.locator('[data-queue-dock]').count(), { timeout: 10_000 }).toBe(0)
+    // Clearing asks first, so the trash opens the dialog and its own confirming
+    // action performs the clear.
     await page.getByRole('button', { name: 'Clear goal' }).click()
+    const clearGoal = page.getByRole('dialog', { name: 'Clear this goal?' })
+    await clearGoal.waitFor({ timeout: 10_000 })
+    await clearGoal.getByRole('button', { name: 'Clear goal' }).click()
     await expect.poll(() => page.locator('[data-goal-bar]').count(), { timeout: 10_000 }).toBe(0)
     await page.getByRole('button', { name: 'Stop generating' }).click()
     await settled

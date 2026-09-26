@@ -97,8 +97,15 @@ describe('web e2e: goal bar clear convergence', () => {
     const inactive = await captureStableAria(page, '[data-goal-bar]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(INACTIVE_EXPECTED, inactive, MODE)
 
-    const clear = bar.getByRole('button', { name: 'Clear goal' })
-    await clear.evaluate((button) => {
+    // The strip's trash asks first: clearing discards the objective with no
+    // undo, so one tap on it must not clear. The rapid double-click this case
+    // guards moves to the dialog's own confirming action.
+    await bar.getByRole('button', { name: 'Clear goal' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Clear this goal?' })
+    await dialog.waitFor({ timeout: 10_000 })
+    expect(await page.locator('[data-goal-bar]').count()).toBe(1)
+    const confirm = dialog.getByRole('button', { name: 'Clear goal' })
+    await confirm.evaluate((button) => {
       const control = button as HTMLButtonElement
       control.click()
       control.click()
@@ -132,6 +139,9 @@ describe('web e2e: goal bar clear convergence', () => {
     await compareOrRefreshGolden(BLOCKED_EXPECTED, blocked, MODE)
 
     await bar.getByRole('button', { name: 'Clear goal' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Clear this goal?' })
+    await dialog.waitFor({ timeout: 10_000 })
+    await dialog.getByRole('button', { name: 'Clear goal' }).click()
     await expect.poll(() => page.locator('[data-goal-bar]').count(), { timeout: 10_000 }).toBe(0)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
