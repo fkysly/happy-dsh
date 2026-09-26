@@ -11,6 +11,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SidebarPanelMetadata, SidebarRootInjected } from './contract/slots.ts'
 import { HeaderLeadingControls } from './HeaderLeadingControls.tsx'
+import { SessionListBackButton } from './SessionListBackButton.tsx'
 import { SidebarRoot } from './SidebarRoot.tsx'
 import { en, zh, type SidebarKey } from './locales.ts'
 
@@ -92,5 +93,14 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: injectProps,
   }, HeaderLeadingControls))
+  // A frame with no room for the sidebar beside the Conversation keeps no rail
+  // either, so the Session list becomes a screen the Conversation header
+  // navigates back to. The occupant reuses the shell's injected actions; the
+  // stylesheet decides where it shows, from the frame's own state attributes.
+  ctx.slots.inject('conversation.header.leading', () => ctx.slots.register({
+    name: 'conversation.header.leading',
+    locale: NS,
+    inject: injectProps,
+  }, SessionListBackButton))
   syncPanels()
 }
