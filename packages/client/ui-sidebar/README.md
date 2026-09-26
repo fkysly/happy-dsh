@@ -43,6 +43,8 @@ During a live collapse, the expanded content fades out at its current width, the
 
 On a touch screen, each collapsed-rail control keeps its drawn 36px size but answers taps across at least 44 × 44 px through an invisible centred layer; the rail's rows stop clipping so the layer reaches past them. The expanded header toggle gets the same layer vertically, since its brand row still clips horizontally.
 
+The expanded drawer instead draws its own controls — the brand row, New Session, the panel rows, and the header toggle — at the 44-point minimum. Each of them paints only a glyph or label over a transparent background, so the larger box changes no pixel at rest and the layout needs no oversized hit layer escaping a clipping ancestor.
+
 On Windows Electron, `html[data-windows-titlebar]` fixes the sidebar toggle in the caption's top-left corner in both states, aligned with New Session's left edge only when expanded. The expanded brand sits below the caption and above New Session, with 8px of extra space above that button. Collapsing hides the brand and sidebar content and places New Session between the sidebar toggle and the Desktop-owned menus. The sidebar sets the root `--dsh-windows-menu-start` to 84px when collapsed; the Desktop preload uses it to position its menu after New Session and defaults to 48px when expanded. Caption icon buttons use centered 16px glyphs in 28px circular controls and exclude themselves from the window drag region. The sidebar toggle and New Session bubbles open below the caption, where the Desktop-owned menu text cannot cover them; an occupying `sidebar.toggle.badge` chooses its own bubble side.
 
 ### macOS desktop

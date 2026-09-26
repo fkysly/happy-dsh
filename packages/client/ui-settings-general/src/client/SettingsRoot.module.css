@@ -54,6 +54,12 @@
 /* Touch screens: the rail trigger keeps its drawn 36px size but answers taps
    across at least 44 × 44 (see ui-sidebar SidebarRoot.module.css). */
 @media (pointer: coarse) {
+  /* Drawer: the row is drawn at the 44-point minimum itself. The trigger is
+     transparent at rest, so only the hit area grows. */
+  .trigger:not(.rail) {
+    min-height: 44px;
+  }
+
   /* The trigger clips its label when wide; in the rail it is an icon. */
   .trigger.rail {
     position: relative;
