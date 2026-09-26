@@ -197,6 +197,11 @@
 /* Content column (figma Content 501:29980): header + options. */
 .content {
   flex: 1;
+  /* A column flex item is `min-height: auto`, so without this the column grows
+     to its content and the options below never become scrollable: on a phone
+     the panel's own `overflow: hidden` then clipped the last of a tall section
+     past the visible viewport, where no gesture could reach it. */
+  min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
