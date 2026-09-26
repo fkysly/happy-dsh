@@ -47,7 +47,7 @@
   gap: 1px;
   width: 336px;
   max-width: min(336px, calc(100vw - 32px));
-  max-height: min(420px, calc(100vh - 140px));
+  max-height: min(420px, calc(100dvh - 140px));
   margin: 0;
   padding: 3px;
   overflow: auto;

@@ -68,7 +68,7 @@
   gap: 1px;
   width: 500px;
   max-width: min(560px, calc(100vw - 32px));
-  max-height: min(480px, calc(100vh - 140px));
+  max-height: min(480px, calc(100dvh - 140px));
   margin: 0;
   padding: 3px;
   overflow: auto;
