@@ -22,7 +22,7 @@ Use this package to give the dsh web client a Settings panel, connection-recover
 
 -----
 
-The Settings panel uses a shared 760 × 500 layout, bounded by the viewport. Longer sections scroll inside the content column; the Account entry uses the account icon.
+The Settings panel uses a shared 800 × 800 layout, bounded by the viewport. Longer sections scroll inside the content column; the Account entry uses the account icon. On a screen 640px wide or narrower, Settings fills the screen as one column: the section list becomes a horizontally scrolling row of tabs under the title, the options take the full width, and Close stays in the top-right corner, clear of the notch and the home indicator.
 
 <a id="use-this-package"></a>
 ## Use this package
