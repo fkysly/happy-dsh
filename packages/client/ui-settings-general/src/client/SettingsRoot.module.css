@@ -254,6 +254,76 @@
   white-space: nowrap;
 }
 
+/* Phone: the 800px two-column panel squeezed the options column to a third of
+   the screen (descriptions wrapped one word per line, selectors overflowed the
+   panel). Settings becomes a full-screen page instead: section tabs in one
+   horizontally scrolling row under the title, the options below at full
+   width, and the close and document actions pinned to the top-right corner.
+   The page keeps clear of the notch and home indicator. */
+@media (max-width: 640px) {
+  .panel {
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+  }
+
+  .nav {
+    width: auto;
+    gap: 8px;
+    padding: 14px 16px 0;
+  }
+
+  /* Room on the title row for the pinned header actions. */
+  .navTitle {
+    padding: 0 96px 0 4px;
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+  }
+
+  .navList {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+    border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+    scrollbar-width: none;
+  }
+
+  .navCell {
+    flex: none;
+    height: 36px;
+    padding: 7px 12px;
+  }
+
+  .navLabel {
+    overflow: visible;
+  }
+
+  .header {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 12px);
+    right: calc(env(safe-area-inset-right) + 12px);
+    height: auto;
+    padding: 0;
+  }
+
+  .close {
+    width: 36px;
+    height: 36px;
+  }
+
+  .options {
+    padding: 4px 16px 24px;
+  }
+}
+
 /* macOS: overlays covering the window drag bands must subtract themselves
    (Electron app-regions are geometry, not stacking). */
 :global([data-platform='darwin']) .overlay {

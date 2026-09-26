@@ -234,6 +234,50 @@ describe('web e2e: settings modal and General preferences', () => {
     expect(console.warnings).toEqual([])
   })
 
+  it('fills a phone screen with one column: section tabs in a row, options at full width', async () => {
+    const phone = await browser.newPage({
+      viewport: { width: 390, height: 664 }, locale: ZH_BROWSER_LOCALE, hasTouch: true, isMobile: true,
+    })
+    onTestFinished(() => phone.close())
+    onTestFailed(() => saveFailureShot(phone, 'web-e2e-settings-phone'))
+    const console = watchConsole(phone)
+    await phone.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+    await openSettings(phone, 'zh')
+    const dialog = phone.getByRole('dialog', { name: '设置', exact: true })
+    const tabs = dialog.getByRole('navigation').getByRole('button')
+    const overflowing = (): Promise<string[]> => dialog.evaluate((root) => {
+      const width = document.documentElement.clientWidth
+      return [...root.querySelectorAll('*')]
+        // The tab row scrolls horizontally by design.
+        .filter(el => el.closest('[class*="_navList"]') === null)
+        .filter((el) => {
+          const rect = el.getBoundingClientRect()
+          return rect.width > 0 && rect.right > width + 1
+        })
+        .map(el => `${el.tagName} ${(el.textContent ?? '').trim().slice(0, 24)}`)
+    })
+
+    const panel = await dialog.boundingBox()
+    expect(panel).toMatchObject({ x: 0, width: 390 })
+    // Tabs share one row instead of a 188px column beside the options.
+    const [first, second] = [await tabs.nth(0).boundingBox(), await tabs.nth(1).boundingBox()]
+    expect(second?.y).toBe(first?.y)
+    const count = await tabs.count()
+    for (let index = 0; index < count; index++) {
+      await tabs.nth(index).click()
+      await expect.poll(() => tabs.nth(index).getAttribute('aria-current')).toBe('true')
+      expect(await overflowing()).toEqual([])
+    }
+    const close = dialog.getByRole('button', { name: '关闭', exact: true })
+    const closeBox = await close.boundingBox()
+    expect(closeBox === null ? 0 : closeBox.x + closeBox.width).toBeLessThanOrEqual(390)
+    expect(closeBox?.height).toBeGreaterThanOrEqual(36)
+    await close.click()
+    await dialog.waitFor({ state: 'detached' })
+    expect(console.pageErrors).toEqual([])
+    expect(console.warnings).toEqual([])
+  })
+
   it('stores Permission as the default for future sessions without changing an existing session', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-settings-permission'))
     const existing = scaffold.ctx.sessions.create(SessionId('settings-permission-before'))
