@@ -286,6 +286,49 @@
   display: inline-flex;
 }
 
+/* A touch screen never hovers, so the trailing actions and the row menu — the
+   only route to pin, rename, fork, or archive a Session — were permanently
+   hidden: measured on an iPhone viewport, seven action clusters rendered and
+   none was reachable. On a coarse pointer they take the time cell's place, the
+   same swap hover performs, so every row still reads as one trailing cell. */
+@media (pointer: coarse) {
+  .rowActions {
+    display: inline-flex;
+    /* 44-point targets cannot sit 10px apart: each needs the control's own 16px
+       plus 14px of growth on every side, so 28px of gap tiles them exactly
+       without one stealing the neighbour's area. */
+    gap: 28px;
+  }
+
+  .sessionRow .time,
+  .sessionRow .pinIndicator {
+    display: none;
+  }
+
+  /* A touch screen's rows are the target, so they take the 44-point minimum
+     themselves: at the pointer layout's 32/34px a 44-point hit layer is taller
+     than the row that clips it, which is what left the workspace row's actions
+     unreachable even once they were shown. */
+  .sessionRow,
+  .projectRow {
+    /* min-height, not height: the pointer layout's fixed height stays the
+       declaration of record and these rows are at least a touch target. */
+    min-height: 44px;
+  }
+
+  /* The glyph keeps its 16px drawing; only the hit layer grows to the 44-point
+     minimum, so nothing on the row changes appearance at rest. */
+  .iconButton {
+    position: relative;
+  }
+
+  .iconButton::after {
+    content: '';
+    position: absolute;
+    inset: -14px;
+  }
+}
+
 /* The search heading has no trailing time cell, so the unarchive action
    right-aligns itself. */
 .searchResultHeading .rowActions {
