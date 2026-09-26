@@ -18,6 +18,14 @@
   font-family: var(--dsw-font-family);
 }
 
+/* The control opens the path in an app on the host computer, which a phone
+   user cannot see, so phone-width touch screens hide it. */
+@media (pointer: coarse) and (max-width: 640px) {
+  .split {
+    display: none;
+  }
+}
+
 .main,
 .chevron {
   display: inline-flex;

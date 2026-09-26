@@ -60,6 +60,8 @@ target package 通过 declaration merge 扩展 snapshot 与 Location data map，
 
 blank Session 保留 header 的 leading 与 corner 控件，包括右侧栏展开入口，同时隐藏标题、actions、utilities 和 View tabs。选择 Workspace 会创建这些控件所需的 Session，无需先发送消息。没有选中 Session 时，strict header 不挂载；常驻容器在 macOS 桌面保留 40px 拖拽区域，在 Web、Windows 或 Linux 上不预留空白高度。侧栏各入口仍遵循自身的数据与执行环境要求。 已开始的 Session 在可用 View 少于两个时使用单行标题栏，仅在渲染标签行时保留其高度。
 
+在触屏上，每个标题栏按钮（包括由插槽提供的按钮）保持绘制尺寸，但通过一层居中的不可见区域在至少 44 × 44 px 范围内响应点按，标题栏控件之间的间距加倍到 16px，相邻区域不会重叠；标题栏位置内弹出层中的按钮保持原尺寸，避免相邻行的区域重叠。View 标签保持绘制尺寸，在 44px 高度范围内响应点按，范围从标签行上方 10px 到下方 9px。
+
 View 选择规则固定：有效且已注册的持久化选择优先，其次是已注册的 `chat`，否则不渲染 View；绝不选择第一个已注册 View。Shell phase 只组合 Session lifecycle 与 active-target set，不读取任何 target-specific 快照。
 
 Session 首次绑定或缓存的 Session 成为 current 时，shell 会在渲染前读取持久化 View 偏好，激活已注册的偏好 View 或 Chat fallback，并在后续 tab 或 focus 选择写入 store 前先激活对应 target。blank Session 仍不渲染 `conversation.view` slot；未选中的 target 不会激活。
