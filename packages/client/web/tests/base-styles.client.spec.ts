@@ -41,4 +41,16 @@ describe('web shell base.css', () => {
       `${literalContentSelectors.join(', ')} { text-autospace: no-autospace; }`,
     )
   })
+
+  it('keeps the mount inside the device safe area', () => {
+    expect(normalizedCss).toContain(
+      '#root { box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }',
+    )
+  })
+
+  it('raises touch-screen text fields to 16px so focusing one does not zoom the page', () => {
+    expect(normalizedCss).toContain(
+      "@media (pointer: coarse) { body :is( input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']), textarea, select, [contenteditable='true'] ) { font-size: max(16px, 1em); } }",
+    )
+  })
 })

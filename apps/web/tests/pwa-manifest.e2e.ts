@@ -28,6 +28,11 @@ it('ships install metadata with the built web application', async () => {
   })
 })
 
+it('lets the page reach under a notch so the shell can keep content in the safe area', async () => {
+  const index = await readFile(join(DIST_ROOT, 'index.html'), 'utf8')
+  expect(index).toContain('<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />')
+})
+
 it('ships fixed-color favicons selected by document media queries', async () => {
   const index = await readFile(join(DIST_ROOT, 'index.html'), 'utf8')
   expect(index).toContain('<link rel="icon" type="image/svg+xml" href="./favicon-dark.svg" media="(prefers-color-scheme: dark)" />')

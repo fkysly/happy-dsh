@@ -76,6 +76,16 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* Touch screens: iOS Safari zooms the page into any focused field whose text
+   is below 16px, and does not zoom back out. The floor sits on the card rather
+   than on the editor alone, so every layer that inherits the draft size keeps
+   the same size and the caret stays aligned with the rendered draft. */
+@media (pointer: coarse) {
+  .card {
+    font-size: max(16px, var(--dsh-content-font-size, 14px));
+  }
+}
+
 /* No-workspace trigger state: an inset 1px dashed outline marks the card as a
    workspace picker rather than a live composer. Keeping the complete stroke
    inside the rounded box prevents clipped corner pixels from reading heavier. */

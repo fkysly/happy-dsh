@@ -8,6 +8,32 @@ body,
   margin: 0;
 }
 
+/* index.html opts into `viewport-fit=cover`, so on phones with a notch or a
+   home indicator the page extends under them. The mount keeps its content in
+   the safe area; the body background fills the insets. Every inset is 0 on
+   devices without them, so desktop layout is unchanged. */
+#root {
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Touch screens: iOS Safari zooms the page into any focused text field below
+   16px and does not zoom back out. Raise every text field to at least 16px,
+   still following a larger inherited size. Covers fields portalled to <body>
+   (settings, dialogs); fields whose own rule is more specific set the floor
+   themselves (the composer card in ui-conversation). */
+@media (pointer: coarse) {
+  body :is(
+    input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']),
+    textarea,
+    select,
+    [contenteditable='true']
+  ) {
+    font-size: max(16px, 1em);
+  }
+}
+
 body {
   font-family: var(
     --dsw-font-family,
