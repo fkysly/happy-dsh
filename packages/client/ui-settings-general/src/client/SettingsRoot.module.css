@@ -11,6 +11,11 @@
 .triggerRow.railRow {
   width: 36px;
   margin: 8px 0 10px;
+  /* The connection indicator is wider than the rail's column even in its
+     glyph-only form, so it wraps under the Settings control instead of
+     squeezing it. */
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .trigger {

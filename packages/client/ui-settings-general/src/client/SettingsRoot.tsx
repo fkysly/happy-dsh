@@ -233,7 +233,8 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           {renderSlot('settings.trigger', { wide })}
         </button> })}
         <ConnectionIndicator
-          state={wide && desktopUpdate.presentation?.phase !== 'installing' ? connectionIndicator : undefined}
+          state={desktopUpdate.presentation?.phase !== 'installing' ? connectionIndicator : undefined}
+          compact={!wide}
           disconnectedLabel={t('connection.error')}
           connectingLabel={t('connection.connecting')}
           recoveredLabel={t('connection.connected')}

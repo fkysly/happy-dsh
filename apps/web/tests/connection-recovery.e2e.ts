@@ -1,7 +1,7 @@
 /** Real WebSocket loss without replacing Client plugins or navigating the page. */
 import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
-import { chromium, type WebSocketRoute } from 'playwright'
+import { chromium, devices, type WebSocketRoute } from 'playwright'
 import { expect, it, onTestFailed, onTestFinished } from 'vitest'
 import { launchWebScaffold, seedSession, watchConsole } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
@@ -87,3 +87,56 @@ it.each([false, true])('retains the mounted application across WebSocket recover
   expect(navigations).toBe(0)
   if (!activeSession) expect(await page.getByText('Into the Unknown', { exact: true }).isVisible()).toBe(true)
 })
+
+it('shows the outage on a phone without opening the drawer, and recovers through it', async () => {
+  const scaffold = await launchWebScaffold({})
+  onTestFinished(() => scaffold.close())
+  const browser = await chromium.launch()
+  onTestFinished(() => browser.close())
+  // A phone keeps the sidebar as a closed drawer, so the expanded row's
+  // connection indicator is never on screen: the state has to reach the
+  // always-visible rail, as a 44-point target of its own.
+  const context = await browser.newContext({ ...devices['iPhone 13'], locale: 'en-US' })
+  onTestFinished(() => context.close())
+  const page = await context.newPage()
+  const console = watchConsole(page)
+  onTestFailed(() => saveFailureShot(page, 'web-e2e-connection-recovery-phone'))
+  await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+  await page.getByRole('button', { name: 'Open sidebar' }).first().waitFor({ timeout: 30_000 })
+  const outage = page.getByRole('button', { name: /^Disconnected/ })
+  await expect.poll(() => outage.count(), { timeout: 5_000 }).toBe(0)
+
+  await context.setOffline(true)
+  await expect.poll(() => outage.count(), { timeout: 20_000 }).toBe(1)
+  // The drawer stayed closed: the control is on screen because the rail is,
+  // not because a surface was opened for it.
+  expect(await page.getByRole('button', { name: 'Open sidebar' }).count()).toBe(1)
+  const report = await outage.evaluate((control) => {
+    const rect = control.getBoundingClientRect()
+    const cx = rect.x + rect.width / 2
+    const cy = rect.y + rect.height / 2
+    const reaches = (x: number, y: number): boolean => {
+      const hit = document.elementFromPoint(x, y)
+      return hit !== null && (hit === control || control.contains(hit))
+    }
+    const samples: [number, number][] = [
+      [cx, cy], [cx, rect.y + 1], [cx, rect.bottom - 1], [rect.x + 1, cy], [rect.right - 1, cy],
+    ]
+    return {
+      drawn: [Math.round(rect.width), Math.round(rect.height)] as const,
+      misses: samples.filter(([x, y]) => !reaches(x, y)).length,
+    }
+  })
+  expect(report.drawn[0]).toBeGreaterThanOrEqual(44)
+  expect(report.drawn[1]).toBeGreaterThanOrEqual(44)
+  expect(report.misses).toBe(0)
+
+  await outage.click()
+  await expect.poll(() => page.getByRole('button', { name: /^Reconnecting/ }).count(), { timeout: 20_000 }).toBe(1)
+
+  await context.setOffline(false)
+  await expect.poll(() => page.getByRole('status', { name: 'Connected' }).count(), { timeout: 30_000 }).toBe(1)
+  // The confirmation is transient: the rail returns to carrying only controls.
+  await expect.poll(() => page.getByRole('status', { name: 'Connected' }).count(), { timeout: 15_000 }).toBe(0)
+  expect(console.pageErrors).toEqual([])
+}, 120_000)
