@@ -9,6 +9,7 @@ import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.
 import type { TriggerContentProps } from '../src/client/chrome.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
 import { DeveloperToolsRow } from '../src/client/DeveloperToolsRow.tsx'
+import { SignInCodeRow } from '../src/client/SignInCodeRow.tsx'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { SettingsDocumentStore } from '../src/client/settings-document-store.ts'
@@ -89,6 +90,61 @@ it('toggles developer tools using the accepted setting and disables duplicate wr
   finish()
   await waitFor(() => { expect(toggle.getAttribute('aria-checked')).toBe('true') })
   expect(toggle.hasAttribute('disabled')).toBe(false)
+})
+
+describe('SignInCodeRow', () => {
+  function stubClipboard(writeText: (text: string) => Promise<void>): void {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+  }
+
+  it('creates a one-time code, shows it, and copies it', async () => {
+    let resolve!: (code: { code: string; expiresAt: number }) => void
+    const createSignInCode = vi.fn(() => new Promise<{ code: string; expiresAt: number } | undefined>((r) => { resolve = r }))
+    const writeText = vi.fn(() => Promise.resolve())
+    stubClipboard(writeText)
+    render(<SignInCodeRow {...kit} t={t} createSignInCode={createSignInCode} />)
+    expect(screen.getByText('Sign in on another device')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Create sign-in code' }))
+    expect(screen.getByRole('button', { name: 'Creating…' }).hasAttribute('disabled')).toBe(true)
+    resolve({ code: 'one-time-code', expiresAt: Date.now() + 600_000 })
+    await waitFor(() => { expect(screen.getByText('one-time-code')).toBeTruthy() })
+    expect(screen.getByText('Works once, until {time}.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy code' }))
+    expect(writeText).toHaveBeenCalledWith('one-time-code')
+    await waitFor(() => { expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy() })
+  })
+
+  it('explains that a server without sign-in needs no code', async () => {
+    render(<SignInCodeRow {...kit} t={t} createSignInCode={() => Promise.resolve(undefined)} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create sign-in code' }))
+    await waitFor(() => { expect(screen.getByText('This server doesn’t require sign-in, so no code is needed.')).toBeTruthy() })
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('reports a failed request and lets the user try again', async () => {
+    const createSignInCode = vi.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ code: 'second-try', expiresAt: Date.now() })
+    render(<SignInCodeRow {...kit} t={t} createSignInCode={createSignInCode} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create sign-in code' }))
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('Couldn’t create a code. Try again.') })
+    fireEvent.click(screen.getByRole('button', { name: 'Create sign-in code' }))
+    await waitFor(() => { expect(screen.getByText('second-try')).toBeTruthy() })
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('keeps the code on screen when the clipboard is refused', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    stubClipboard(() => Promise.reject(new Error('denied')))
+    render(<SignInCodeRow {...kit} t={t} createSignInCode={() => Promise.resolve({ code: 'kept', expiresAt: Date.now() })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create sign-in code' }))
+    await waitFor(() => { expect(screen.getByText('kept')).toBeTruthy() })
+    fireEvent.click(screen.getByRole('button', { name: 'Copy code' }))
+    await waitFor(() => { expect(warn).toHaveBeenCalled() })
+    expect(screen.queryByRole('button', { name: 'Copied' })).toBeNull()
+    expect(screen.getByText('kept')).toBeTruthy()
+    warn.mockRestore()
+  })
 })
 
 describe('chrome content', () => {

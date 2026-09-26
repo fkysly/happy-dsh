@@ -1,0 +1,56 @@
+.row {
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.title {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.description {
+  margin-top: 4px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.message {
+  margin-top: 8px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.result {
+  margin-top: 12px;
+}
+
+/* The code is long random text: wrap anywhere and select it whole, so it can
+   be copied by hand where the clipboard is unavailable. */
+.code {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-3);
+  font-family: var(--ds-font-family-code);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}

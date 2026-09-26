@@ -39,7 +39,7 @@ The current release version appears at the bottom of General Settings in Web and
 
 The Developer tools switch controls the shared preference described by [ui-settings](../ui-settings/README.md#use-this-package). It is available in both Web and desktop, follows accepted changes immediately, and disables duplicate input while a write settles. A failed write displays localized retry guidance.
 
-The General section holds the built-in Developer tools and Current version rows alongside rows registered into `settings.general.item` by feature packages. Each registrant owns its row copy and behavior. The Appearance row, for example, lives in ui-theme.
+The General section holds the built-in Developer tools, Sign in on another device, and Current version rows alongside rows registered into `settings.general.item` by feature packages. Each registrant owns its row copy and behavior. The Appearance row, for example, lives in ui-theme.
 
 ### Opening the configuration file
 
