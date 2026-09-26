@@ -17,6 +17,7 @@ import { connectFreshWorkspace, expectTooltipOnTop, newEnglishPage, saveFailureS
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/goal-bar', import.meta.url))
 const ACTIVE_EXPECTED = join(SNAPSHOT_DIR, 'active.expected.md')
+const BLOCKED_EXPECTED = join(SNAPSHOT_DIR, 'blocked.expected.md')
 const INACTIVE_EXPECTED = join(SNAPSHOT_DIR, 'inactive.expected.md')
 const OVERLAY = fileURLToPath(new URL('./goal-bar.overlay.yml', import.meta.url))
 const MODE = webSnapshotMode()
@@ -108,7 +109,34 @@ describe('web e2e: goal bar clear convergence', () => {
     expect(tripwire.warnings).toEqual([])
   }, 60_000)
 
+  it('shows why a blocked goal stopped and offers the resume its phase accepts', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-goal-bar-blocked'))
+    const agents = scaffold.ctx.agents.list()
+    expect(agents).toHaveLength(1)
+    // Created through the service: this case is about the strip's blocked state,
+    // and the previous case already proved the `/goal` composer path.
+    scaffold.ctx.goals.create(agents[0]!, { objective: 'guard a blocked goal', maxGoalRounds: 4 })
+    const bar = page.locator('[data-goal-bar]')
+    await bar.waitFor({ timeout: 10_000 })
+    const current = scaffold.ctx.goals.get(agents[0]!)
+    expect(current).toBeDefined()
+    scaffold.ctx.goals.block(agents[0]!, { id: current!.id, revision: current!.revision }, {
+      code: 'stalled', message: 'No progress in 3 rounds',
+    })
+
+    // The reason is text in the strip, not a hover-only tooltip: a phone has no pointer.
+    await expect.poll(() => bar.getByText('Blocker: No progress in 3 rounds').count(), { timeout: 10_000 }).toBe(1)
+    // `goals/resume` accepts a blocked goal, so the strip must offer it.
+    await expect.poll(() => bar.getByRole('button', { name: 'Resume goal' }).count(), { timeout: 10_000 }).toBe(1)
+    const blocked = await captureStableAria(page, '[data-goal-bar]', scaffold.workspaceCwd)
+    await compareOrRefreshGolden(BLOCKED_EXPECTED, blocked, MODE)
+
+    await bar.getByRole('button', { name: 'Clear goal' }).click()
+    await expect.poll(() => page.locator('[data-goal-bar]').count(), { timeout: 10_000 }).toBe(0)
+    expect(tripwire.pageErrors).toEqual([])
+  }, 60_000)
+
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, ['active.expected.md', 'inactive.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['active.expected.md', 'blocked.expected.md', 'inactive.expected.md'])
   })
 })

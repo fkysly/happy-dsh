@@ -180,19 +180,30 @@ describe('GoalBar', () => {
     expect(screen.queryByText('进行中的目标')).toBeNull()
   })
 
-  it('blocked goal: "受阻的目标" with the block reason as the strip tooltip', () => {
+  it('blocked goal: "受阻的目标" with the block reason on the strip', () => {
     const actions = makeActions()
     const goal = makeGoal({ phase: 'blocked', blockedReason: { code: 'stalled', message: 'No progress in 3 rounds' } })
     render(<GoalBar goal={goal} {...actions} t={t} />)
     expect(screen.getByText('受阻的目标')).toBeTruthy()
+    // Readable without a pointer: visible text, not only the strip's tooltip.
+    expect(screen.getByText('受阻原因：No progress in 3 rounds')).toBeTruthy()
     expect(screen.getByText('受阻的目标').closest('[title]')?.getAttribute('title')).toBe('No progress in 3 rounds')
   })
 
-  it('blocked goal without a reason carries no tooltip', () => {
+  it('blocked goal: offers resume, the phase `goals/resume` accepts', () => {
+    const actions = makeActions()
+    const goal = makeGoal({ phase: 'blocked', blockedReason: { code: 'stalled', message: 'No progress in 3 rounds' } })
+    render(<GoalBar goal={goal} {...actions} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: '恢复目标' }))
+    expect(actions.onResume).toHaveBeenCalledTimes(1)
+  })
+
+  it('blocked goal without a reason carries no tooltip and no blocker line', () => {
     const actions = makeActions()
     render(<GoalBar goal={makeGoal({ phase: 'blocked' })} {...actions} t={t} />)
     expect(screen.getByText('受阻的目标')).toBeTruthy()
     expect(screen.getByText('受阻的目标').closest('[title]')).toBeNull()
+    expect(screen.queryByText(/受阻原因/)).toBeNull()
   })
 
   it('keeps the edit draft open and reports a failed save', async () => {

@@ -131,13 +131,17 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
     )
   }
 
-  const title = goal.phase === 'blocked' ? goal.blockedReason?.message : undefined
   const label = goal.phase === 'active' ? activeLabel(activation, t) : t(PHASE_LABELS[goal.phase])
-  const showResume = goal.phase === 'paused'
-    || (goal.phase === 'active' && activation === 'disarmed')
+  // Every phase that reaches here but `active` is resumable — a paused or
+  // blocked goal included, since `goals/resume` accepts both. An active goal
+  // needs its continuation disarmed first; an armed one is already running.
+  const showResume = goal.phase !== 'active' || activation === 'disarmed'
+  // The strip gives the objective one line; the blocker it stopped on gets the
+  // line below, so the reason is readable without a pointer hovering it.
+  const blocker = goal.phase === 'blocked' ? goal.blockedReason?.message : undefined
   return (
     <div className={css.dock} data-goal-bar>
-      <div className={css.bar} title={title}>
+      <div className={css.bar} title={blocker}>
         <span className={css.goalGlyph}><IconGoalOutlineRegular size={14} /></span>
         <span className={css.label}>{label}</span>
         <span className={css.objective}>{goal.objective}</span>
@@ -174,6 +178,9 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
             </button>
           </Tooltip>
         </div>
+        {blocker !== undefined && (
+          <span className={css.blocker}>{t('reason.label', { message: blocker })}</span>
+        )}
       </div>
     </div>
   )
