@@ -77,6 +77,42 @@ describe('createLayoutStore', () => {
   })
 })
 
+describe('overlay sidebar collapse', () => {
+  it('collapses a manually expanded sidebar on a frame too narrow to share', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.setSidebar(400)
+    actions.setViewportWidth(390)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    actions.collapseOverlaySidebar()
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
+  })
+
+  it('keeps a narrow-but-wide-enough sidebar open: that column shares the frame', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.setViewportWidth(900)
+    actions.toggleSidebar()
+    actions.collapseOverlaySidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+  })
+
+  it('resolves an unset width preference to the default before judging the overlay', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.sidebar).toBe(0)
+    actions.setViewportWidth(390)
+    actions.toggleSidebar()
+    actions.collapseOverlaySidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+  })
+
+  it('leaves the wide sidebar alone: it can never be an overlay', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.collapseOverlaySidebar()
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 280, narrowExpanded: false })
+  })
+})
+
 describe('main panel selection', () => {
   const panelA = 'panel-a' as MainPanelId
   const panelB = 'panel-b' as MainPanelId

@@ -7,6 +7,13 @@
  * the Conversation or a global panel. Each column occupant owns its Session
  * binding and reports the geometry it needs.
  *
+ * A frame too narrow to hold the expanded sidebar beside the centre's contract
+ * minimum renders the sidebar as an overlay drawer over a scrim (see
+ * `sidebarOverlaysCenter`) instead of as the first track: on a phone the track
+ * form left the centre a few dozen pixels wide. The drawer closes on the scrim,
+ * and on any navigation that changes the Session in the centre, so the choice
+ * the user just made is what they see.
+ *
  * The right column is a track, not a box: its occupant draws its panel anchored
  * to the frame's right edge at the resolved normal width, and the
  * track only decides whether the centre makes room for it. The occupant reports
@@ -19,7 +26,7 @@ import type { ReactNode } from 'react'
 import type {
   PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
-import { CENTER_MIN, clampWidth, computeColumns, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT } from './columns.ts'
+import { CENTER_MIN, clampWidth, computeColumns, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, sidebarOverlaysCenter } from './columns.ts'
 import { DocumentTitle } from './DocumentTitle.tsx'
 import type { createLayoutStore } from './stores.ts'
 import css from './AppFrame.module.css'
@@ -57,6 +64,24 @@ function ConversationMarker({ usePanelInfo, frameRef }: Pick<PropsRuntime<'root'
     if (conversationActive) frame.setAttribute('data-panel-conversation', '')
     else frame.removeAttribute('data-panel-conversation')
   }, [conversationActive, frameRef])
+  return null
+}
+
+/**
+ * Closes the overlay sidebar when the Session shown in the centre changes: on a
+ * frame that renders the sidebar as a drawer, choosing a Session is a navigation
+ * and must reveal what the user chose. The subscription is its own so a Session
+ * switch never re-renders the frame's tracks (the DocumentTitle shape).
+ */
+function DrawerNavigationClose({ useSessions, onNavigate }: Pick<PropsRuntime<'root'>, 'useSessions'> & { onNavigate: () => void }) {
+  const shownSessionId = useSessions(state => Object.values(state.byId)
+    .find(session => (session.retainedBy.mainView ?? 0) > 0)?.id)
+  const previous = useRef(shownSessionId)
+  useEffect(() => {
+    if (previous.current === shownSessionId) return
+    previous.current = shownSessionId
+    onNavigate()
+  }, [shownSessionId, onNavigate])
   return null
 }
 
@@ -190,6 +215,10 @@ export function AppFrame({
   // include that space before the occupant's first shown report arrives.
   const normal = computeColumns(viewport, !layoutInfo.rightbarShown && narrow ? 0 : sidebarPreference, rightbarPreference, collapsedWidth)
   const cols = computeColumns(viewport, sidebarPreference, layoutInfo.rightbarTrack ? rightbarPreference : 0, collapsedWidth)
+  // An expanded sidebar that cannot sit beside the centre's minimum covers it
+  // instead of taking the first track; the centre then keeps the whole frame.
+  const drawer = !sidebarCollapsed && sidebarOverlaysCenter(viewport, cols.sidebar)
+  const sidebarTrack = drawer ? 0 : cols.sidebar
   const colsRef = useRef(cols)
   colsRef.current = cols
   const rightbarWidth = useRef(normal.rightbar)
@@ -280,10 +309,12 @@ export function AppFrame({
       style={{
         ...(document.documentElement.hasAttribute('data-windows-titlebar')
           ? { '--dsh-windows-sidebar-width': `${cols.sidebar}px` } : {}),
+        ...(drawer ? { '--dsh-sidebar-drawer-width': `${cols.sidebar}px` } : {}),
         gridTemplateColumns:
-          `${cols.sidebar}px minmax(${cols.rightbar === 0 ? 0 : CENTER_MIN}px, 1fr) minmax(0px, ${rightbarMax}px)`,
+          `${sidebarTrack}px minmax(${cols.rightbar === 0 ? 0 : CENTER_MIN}px, 1fr) minmax(0px, ${rightbarMax}px)`,
       }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
+      data-sidebar-drawer={drawer || undefined}
       data-rightbar-collapsed={cols.rightbar === 0 || undefined}
       data-rightbar-fullscreen={layoutInfo.rightbarFullscreen || undefined}
       data-rightbar-instant={layoutInfo.rightbarInstant || undefined}
@@ -300,6 +331,8 @@ export function AppFrame({
         useSessions={useSessions}
         usePanelInfo={usePanelInfo}
       />
+      <DrawerNavigationClose useSessions={useSessions} onNavigate={actions.collapseOverlaySidebar} />
+      {drawer && <div className={css.scrim} data-sidebar-scrim aria-hidden="true" onClick={actions.collapseOverlaySidebar} />}
       <div className={css.sidebarCol}>
         {sidebar}
       </div>
@@ -317,8 +350,9 @@ export function AppFrame({
           {leading}
         </div>
       )}
-      {/* The collapsed rail is fixed-width: no resize handle while closed. */}
-      {!sidebarCollapsed && <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
+      {/* The collapsed rail is fixed-width: no resize handle while closed. The
+          overlay drawer is sized by the frame, not by a drag. */}
+      {!sidebarCollapsed && !drawer && <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
       {layoutInfo.rightbarShown && !layoutInfo.rightbarFullscreen && normal.rightbar > 0 && (
         <DragHandle side="rightbar" left={viewport - normal.rightbar} onStart={onRightbarStart} onDrag={onRightbarDrag} onEnd={onDragEnd} />
       )}

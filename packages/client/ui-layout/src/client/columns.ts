@@ -40,6 +40,22 @@ export function clampWidth(px: number, min: number, max: number): number {
 }
 
 /**
+ * Whether an expanded sidebar must cover the centre instead of taking a track.
+ *
+ * An expanded sidebar and the centre both have a contract minimum (SIDEBAR_MIN,
+ * CENTER_MIN); a frame narrower than their sum holds only one of them, which is
+ * every phone and small-tablet portrait frame. Taking the track there leaves the
+ * centre a few dozen pixels wide — text wraps to one character per line — so the
+ * sidebar floats above the centre over a scrim instead.
+ * @param viewport - frame width in px.
+ * @param sidebar - resolved sidebar width in px; 0 while it is closed.
+ * @returns true when the sidebar renders as an overlay drawer.
+ */
+export function sidebarOverlaysCenter(viewport: number, sidebar: number): boolean {
+  return sidebar > 0 && viewport < sidebar + CENTER_MIN
+}
+
+/**
  * Solve the three column widths for one viewport frame.
  * @param viewport - available frame width in px.
  * @param sidebar - sidebar width preference in px (0 = closed).
