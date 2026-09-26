@@ -135,6 +135,33 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
     expect(tripwire.warnings).toEqual([])
   }, 90_000)
 
+  it('keeps the Session title readable in a phone-width header by showing only the job count', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-background-job-phone'))
+    // The previous case leaves one settled job, so the trigger stays in the header.
+    await page.setViewportSize({ width: 390, height: 664 })
+    // The frame re-solves its columns a frame after the resize; measure the
+    // phone layout (sidebar collapsed to its rail), not the desktop one.
+    await page.waitForSelector('[data-sidebar-collapsed]', { timeout: 10_000 })
+    const trigger = page.getByRole('button', { name: '1 background job', exact: true })
+    await trigger.waitFor({ timeout: 10_000 })
+    // innerText follows CSS: in the narrow header the sentence is hidden and
+    // only the count remains, while the accessible name keeps the sentence.
+    await expect.poll(() => trigger.evaluate(el => (el as HTMLElement).innerText.trim())).toBe('1')
+    const layout = await page.evaluate(() => {
+      const title = document.querySelector('[class*="crumbCurrent"]')
+      const row = document.querySelector('[class*="titleRow"]')
+      const controls = row === null ? [] : [...row.querySelectorAll('button')]
+      return {
+        titleWidth: title === null ? 0 : title.getBoundingClientRect().width,
+        rightmost: Math.max(0, ...controls.map(el => el.getBoundingClientRect().right)),
+        viewport: document.documentElement.clientWidth,
+      }
+    })
+    expect(layout.titleWidth).toBeGreaterThan(80)
+    expect(layout.rightmost).toBeLessThanOrEqual(layout.viewport)
+    expect(tripwire.pageErrors).toEqual([])
+  }, 60_000)
+
   it('keeps its snapshot inventory closed', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, ['running.expected.md', 'settled.expected.md'])
   })

@@ -73,14 +73,18 @@ describe('JobListAction visibility', () => {
       outputJob(),
       job({ id: 'subagent-1' as JobView['id'], kind: 'subagent', label: 'explore' }),
     ])} />)
-    expect(screen.getByRole('button', { name: '2 个后台任务运行中' })).toBeDefined()
+    const trigger = screen.getByRole('button', { name: '2 个后台任务运行中' })
+    // The narrow-header form: the bare count, hidden from assistive technology
+    // because the trigger's accessible name already states it.
+    expect([...trigger.querySelectorAll('[aria-hidden="true"]')].map(el => el.textContent)).toContain('2')
   })
 
   it('falls back to the total when nothing is live', () => {
     render(<JobListAction {...props([
       job({ status: 'completed', finishedAt: 1_700_000_003_000 }),
     ])} />)
-    expect(screen.getByRole('button', { name: '1 个后台任务' })).toBeDefined()
+    const trigger = screen.getByRole('button', { name: '1 个后台任务' })
+    expect([...trigger.querySelectorAll('[aria-hidden="true"]')].map(el => el.textContent)).toContain('1')
   })
 })
 

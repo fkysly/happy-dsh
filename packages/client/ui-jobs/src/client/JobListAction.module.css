@@ -38,6 +38,25 @@
   margin: 0 5px;
 }
 
+.countShort {
+  display: none;
+  margin: 0 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A narrow conversation header (its title row is the nearest inline-size
+   container) keeps the count and drops the sentence, so the Session title
+   keeps its room — the same breakpoint the preset label sheds its text at. */
+@container (max-width: 540px) {
+  .count {
+    display: none;
+  }
+
+  .countShort {
+    display: inline;
+  }
+}
+
 .menu {
   position: absolute;
   top: calc(100% + 5px);
