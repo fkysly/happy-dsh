@@ -186,6 +186,47 @@ describe('Chat inject API', () => {
     await b.runtime.dispose()
   })
 
+  it('queues the continuation on the Session and reports a rejected send', async () => {
+    const b = await bench()
+    const { injected } = b.chatViewApi(b.rootReference)
+    const notify = vi.fn()
+    const send = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve())
+    const scope = vi.spyOn(b.runtime.sessions, 'scope').mockReturnValue({
+      conversation: { send, input: { for: () => ({ notify }) } },
+    } as never)
+
+    injected.continueTurn('carry on')
+    // Queue, not steer: the interrupted turn has already ended, so the
+    // continuation opens the Session's next turn through `send`.
+    expect(send).toHaveBeenCalledWith('carry on')
+    await vi.waitFor(() => { expect(send).toHaveBeenCalledTimes(1) })
+    expect(notify).not.toHaveBeenCalled()
+
+    send.mockRejectedValueOnce(new Error('send refused'))
+    injected.continueTurn('again')
+    await vi.waitFor(() => { expect(notify).toHaveBeenCalledWith('error', 'send refused') })
+
+    // A rejection that is not an Error still has to reach the notice as text.
+    send.mockRejectedValueOnce('offline')
+    injected.continueTurn('once more')
+    await vi.waitFor(() => { expect(notify).toHaveBeenCalledWith('error', 'offline') })
+    scope.mockRestore()
+    await b.runtime.dispose()
+  })
+
+  it('continues nothing when the Session has no scope or no conversation', async () => {
+    const b = await bench()
+    const { injected } = b.chatViewApi(b.rootReference)
+    // An absent scope, and a scope without a conversation, both leave the view
+    // as it is rather than throwing at the operator.
+    const scope = vi.spyOn(b.runtime.sessions, 'scope').mockReturnValue(undefined)
+    injected.continueTurn('nowhere')
+    scope.mockReturnValue({} as never)
+    injected.continueTurn('still nowhere')
+    scope.mockRestore()
+    await b.runtime.dispose()
+  })
+
   it('addresses file paths under the Session\'s scope and opens them in the right Sidebar', async () => {
     const b = await bench()
     const { injected } = b.chatViewApi(b.rootReference)

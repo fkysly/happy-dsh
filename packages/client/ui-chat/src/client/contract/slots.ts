@@ -117,6 +117,14 @@ export interface ChatNodeOwnerProps {
   inspectCall: ((callId: ToolCallId) => void) | undefined
   forkAt: (seq: number) => void
   /**
+   * Ask the Session to carry on after a turn the service interrupted. `text` is
+   * the continuation the operator would otherwise type; the renderer supplies it
+   * so the model instruction stays locale-owned. A rejected send reaches the
+   * Session's own composer notice channel.
+   * @param text - continuation prompt to queue on the Session.
+   */
+  continueTurn: (text: string) => void
+  /**
    * Session-authorized image loader, down-threaded from the Chat view so a
    * chat-node renderer can render the attachment presentation slot directly
    * with only the durable references plus this loader, instead of receiving a
@@ -206,6 +214,13 @@ export interface ChatViewInjected {
     read: () => ChatScrollPosition | null
   }
   forkAt: (seq: number) => void
+  /**
+   * Ask the Session to carry on after a turn the service interrupted. `text` is
+   * the continuation the operator would otherwise type; the renderer supplies it
+   * so the model instruction stays locale-owned.
+   * @param text - continuation prompt to queue on the Session.
+   */
+  continueTurn: (text: string) => void
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
 }
 
