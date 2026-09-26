@@ -27,6 +27,8 @@ The Web GUI goal surface shows both the durable goal state and its current proce
 
 Mount this plugin alongside `ui-conversation` and the goal domain package; the strip then appears as the second card in the composer-context stack (after Todo, before Queue) whenever the session has a goal. Todo and Goal use the same panel elevation above the composer. An armed active goal offers pause; an active-but-disarmed or paused goal offers resume; edit rewrites the objective; clear removes the goal and suppresses the strip until the projection catches up.
 
+Clearing asks first: the strip's trash opens a confirmation naming the objective and stating that its round history goes with it, and only that dialog's destructive action clears. The action discards the objective with no undo, and on a touch screen its target is easy to reach, so a single tap must not be enough.
+
 
 An armed active goal offers pause; an active-but-disarmed or paused goal offers resume; a blocked goal shows its blocker as text on a second line of the strip and offers resume too, because `goals/resume` accepts that phase. On a touch screen the strip's actions keep their drawn 28px size but answer taps across at least 44 × 44 px through an invisible centred layer, and their spacing doubles to 16px so two neighbouring layers meet without overlapping.
 ### The command-input bubble

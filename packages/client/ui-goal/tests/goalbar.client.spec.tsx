@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GoalSnapshot } from '@deepseek-ai/dsh-goal/client'
 import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
@@ -53,8 +53,26 @@ describe('GoalBar', () => {
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     expect(screen.getByText('进行中的目标')).toBeTruthy()
     expect(screen.getByText('Ship the redesign')).toBeTruthy()
+    // The trash only asks: clearing discards the objective with no undo.
     fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
+    expect(actions.onClear).not.toHaveBeenCalled()
+    const dialog = screen.getByRole('dialog', { name: '清除这个目标？' })
+    expect(within(dialog).getByText(/Ship the redesign/)).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '清除目标' }))
     expect(actions.onClear).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the goal when the clear confirmation is declined', () => {
+    const actions = makeActions()
+    render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
+    const dialog = screen.getByRole('dialog', { name: '清除这个目标？' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保留目标' }))
+    expect(actions.onClear).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // The strip is still there, still carrying the objective.
+    expect(screen.getByText('进行中的目标')).toBeTruthy()
+    expect(screen.getByText('Ship the redesign')).toBeTruthy()
   })
 
   it('single-flights rapid clear clicks and hides the committed goal before its projection catches up', async () => {
@@ -62,7 +80,8 @@ describe('GoalBar', () => {
     let resolveClear!: (result: GoalActionResult) => void
     actions.onClear.mockImplementation(() => new Promise((resolve) => { resolveClear = resolve }))
     const { container, rerender } = render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
-    const clear = screen.getByRole<HTMLButtonElement>('button', { name: '清除目标' })
+    fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
+    const clear = within(screen.getByRole('dialog')).getByRole<HTMLButtonElement>('button', { name: '清除目标' })
 
     act(() => {
       clear.click()
@@ -232,10 +251,18 @@ describe('GoalBar', () => {
       ok: false, error: new RemoteError('session/agent-busy', 'clear failed', { reason: 'clear failed' }),
     })
     rerender(<GoalBar goal={makeGoal()} {...actions} t={t} />)
-    fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
+    // The dialog closes on either outcome; a rejected clear reports on the
+    // strip and leaves the goal there, and the trash asks again.
+    const confirmClear = () => {
+      fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
+      const dialog = screen.getByRole('dialog', { name: '清除这个目标？' })
+      fireEvent.click(within(dialog).getByRole('button', { name: '清除目标' }))
+    }
+    confirmClear()
     expect((await screen.findByRole('alert')).textContent).toBe('clear failed (session/agent-busy)')
     expect(screen.getByText('Ship the redesign')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    confirmClear()
     await waitFor(() => { expect(actions.onClear).toHaveBeenCalledTimes(2) })
   })
 })
