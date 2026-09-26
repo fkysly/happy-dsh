@@ -28,6 +28,7 @@ import { requestPromptDefinition, systemMessageDefinition } from '../src/client/
 import { retryDefinition } from '../src/client/conversation-nodes/retry.ts'
 import { toolDefinition } from '../src/client/conversation-nodes/tool.ts'
 import { turnErrorDefinition } from '../src/client/conversation-nodes/turn-error.ts'
+import { turnInterruptedDefinition } from '../src/client/conversation-nodes/turn-interrupted.ts'
 import { turnMaxTokensDefinition } from '../src/client/conversation-nodes/turn-max-tokens.ts'
 import { turnTailDefinition } from '../src/client/conversation-nodes/turn-tail.ts'
 import { turnProcessDefinition } from '../src/client/conversation-nodes/turn-process.ts'
@@ -48,6 +49,7 @@ const DEFINITIONS: readonly ConversationNodeDefinition[] = [
   compactionDefinition,
   retryDefinition,
   turnErrorDefinition,
+  turnInterruptedDefinition,
   turnMaxTokensDefinition,
   turnTailDefinition,
 ]
@@ -2697,6 +2699,63 @@ describe('built-in conversation node Definitions', () => {
       match(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
     )).toBe(state)
     expect(turnMaxTokensDefinition.buildViewNode?.(context(undefined))).toBeNull()
+  })
+
+  it('materializes an interrupted notice and keeps completed turns clean', () => {
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'step/start', { turn: 1, step: 1 }),
+      at(3, 'assistant/message', {
+        turn: 1, step: 1, message: assistantMessage('a1', 'half an answer'),
+      }, { surfaceOp: 'append' }),
+      at(4, 'step/end', { turn: 1, step: 1 }),
+      at(5, 'turn/end', { turn: 1, reason: { kind: 'interrupted' } }),
+    ])
+    const notice = node(snapshot(value), 'turn-interrupted')
+    expect(notice?.data).toMatchObject({ kind: 'turn-interrupted', seq: 5, turn: 1, step: 1 })
+    // The tail stays the turn's last node so its branch action survives.
+    const tail = node(snapshot(value), 'turn-tail')
+    expect(notice?.anchorSeq).toBeLessThan(tail?.anchorSeq ?? Number.NEGATIVE_INFINITY)
+    expect(notice?.anchorSeq).toBeGreaterThan(3)
+    expect(node(snapshot(value), 'turn-error')).toBeUndefined()
+
+    const completed = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+    ])
+    expect(node(snapshot(completed), 'turn-interrupted')).toBeUndefined()
+
+    // The two turn-end notices never describe the same turn.
+    expect(node(snapshot(value), 'turn-max-tokens')).toBeUndefined()
+  })
+
+  it('keeps the interrupted notice when the window starts after the owning turn/start', () => {
+    const value = assembler([
+      at(9, 'turn/end', { turn: 3, reason: { kind: 'interrupted' } }),
+    ], true)
+    expect(node(snapshot(value), 'turn-interrupted')?.data)
+      .toMatchObject({ kind: 'turn-interrupted', seq: 9, turn: 3 })
+  })
+
+  it('pins the interrupted Definition edges the engine cannot reach', () => {
+    const match = (seq: number, type: string, data: unknown) => ({
+      event: { seq, time: seq * 1_000, type, data },
+      role: 'start',
+      location: undefined,
+    }) as unknown as Parameters<typeof turnInterruptedDefinition.start>[1]
+    const context = (state: unknown, matches: unknown[] = []) => ({
+      key: 'k', kind: 'turn-interrupted', id: '1', matches, start: undefined, state, current: new Map(),
+    }) as unknown as Parameters<NonNullable<typeof turnInterruptedDefinition.buildViewNode>>[0]
+    const reader = { previous: () => undefined }
+
+    expect(() => turnInterruptedDefinition.start(context(undefined), match(1, 'turn/start', { turn: 1 }), reader))
+      .toThrow('turn-interrupted start requires an interrupted turn/end')
+    const state = { turn: 1, seq: 5, time: 5_000 }
+    expect(turnInterruptedDefinition.update(
+      context(state) as Parameters<typeof turnInterruptedDefinition.update>[0],
+      match(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+    )).toBe(state)
+    expect(turnInterruptedDefinition.buildViewNode?.(context(undefined))).toBeNull()
   })
 
   it('preserves nested Tools and manual compaction evidence when their start events are outside the window', () => {

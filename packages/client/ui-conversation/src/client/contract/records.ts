@@ -151,6 +151,17 @@ export interface TurnMaxTokensNode {
   step: number
 }
 
+/** Durable notice for a turn the service stopped by restarting. */
+export interface TurnInterruptedNode {
+  kind: 'turn-interrupted'
+  /** Seq of the owning turn/end event. */
+  seq: number
+  /** Unix epoch ms from the turn/end event. */
+  time: number
+  turn: number
+  step: number
+}
+
 /** A tool result paired (when in-window) with its call head. */
 export interface ToolResultNode {
   kind: 'tool-result'
@@ -252,6 +263,7 @@ export type ConversationNode =
   | ModelRetryNode
   | TurnErrorNode
   | TurnMaxTokensNode
+  | TurnInterruptedNode
   | ToolResultNode
   | CommandNode
   | CompactionSummaryNode
