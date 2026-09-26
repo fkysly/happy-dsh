@@ -27,6 +27,8 @@ Web GUI 的 goal 界面同时显示持久 goal 状态及当前的进程本地激
 
 与 `ui-conversation` 及 goal 领域包一起挂载本插件；只要会话存在目标，条带就会作为 composer 上下文堆栈的第二张卡片出现（位于 Todo 之后、Queue 之前）。Todo 与 Goal 使用相同的面板 elevation，使其位于 composer 层级之上。已 armed 的 active goal 提供暂停动作；active-but-disarmed 或 paused 的 goal 提供恢复；编辑重写目标文本；清除移除目标，并在投影追上之前抑制条带。
 
+清除会先问一次：条带上的垃圾桶打开一个确认框，写明要清掉的目标以及它的轮次记录会一并移除，只有该对话框上的破坏性操作才会真正清除。该操作会不可撤销地丢弃目标，而在触屏上它的点按区域很容易够到，所以不能一次点按就生效。
+
 
 已 armed 的 active goal 提供暂停动作；active-but-disarmed 或 paused 的 goal 提供恢复；受阻的目标在条带第二行以文字显示受阻原因，并提供恢复动作，因为 `goals/resume` 接受该阶段。在触屏上，条带中的操作按钮保持绘制的 28px 尺寸，但通过一层居中的不可见区域在至少 44 × 44 px 范围内响应点按，按钮间距加倍到 16px，相邻区域不会重叠。
 ### 指令输入气泡

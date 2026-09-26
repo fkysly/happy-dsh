@@ -15,6 +15,11 @@ export const zh = {
   'action.resume': '恢复目标',
   'action.edit': '编辑目标',
   'action.clear': '清除目标',
+  'clear.title': '清除这个目标？',
+  'clear.description': '「{objective}」以及它的轮次记录会被移除，且无法撤销。',
+  'clear.confirm': '清除目标',
+  'clear.keep': '保留目标',
+  'clear.dismiss': '关闭',
 } satisfies Record<string, string>
 
 /** The goal namespace key union. */
@@ -35,4 +40,9 @@ export const en = {
   'action.resume': 'Resume goal',
   'action.edit': 'Edit goal',
   'action.clear': 'Clear goal',
+  'clear.title': 'Clear this goal?',
+  'clear.description': 'This removes "{objective}" and its round history, and cannot be undone.',
+  'clear.confirm': 'Clear goal',
+  'clear.keep': 'Keep goal',
+  'clear.dismiss': 'Close',
 } satisfies Record<GoalKey, string>

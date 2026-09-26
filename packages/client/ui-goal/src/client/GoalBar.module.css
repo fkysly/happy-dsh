@@ -176,3 +176,15 @@
     inset: min(0px, calc(50% - 22px));
   }
 }
+
+/* The dialog's confirming action is the destructive one: it discards the
+   objective and its round history, so it wears the error fill rather than the
+   primary one the app's constructive actions use. */
+.clearConfirm {
+  background: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+.clearConfirm:hover:not(:disabled) {
+  background: var(--dsw-alias-state-error-secondary);
+}

@@ -11,8 +11,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GoalActivation, GoalSnapshot } from '@deepseek-ai/dsh-goal/client'
 import {
-  IconCheckOutlineRegular, IconCloseOutlineRegular, IconEditOutlineRegular, IconGoalOutlineRegular,
-  IconPauseOutlineRegular, IconPlayOutlineRegular, IconTrashOutlineRegular, Tooltip,
+  Button, IconCheckOutlineRegular, IconCloseOutlineRegular, IconEditOutlineRegular, IconGoalOutlineRegular,
+  IconPauseOutlineRegular, IconPlayOutlineRegular, IconTrashOutlineRegular, Modal, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GoalActionResult, GoalBarActions, GoalBarInjected } from './slots.ts'
@@ -45,6 +45,9 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
   const [pending, setPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [clearedGoalId, setClearedGoalId] = useState<GoalSnapshot['id'] | null>(null)
+  // Clearing discards the objective and its round history with no undo, so the
+  // strip asks first: the trash opens this, and only the dialog clears.
+  const [confirmingClear, setConfirmingClear] = useState(false)
   const pendingRef = useRef(false)
 
   // A new goal identity (cleared/completed/replaced externally) invalidates the local edit
@@ -54,6 +57,7 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
     setEditing(false)
     setActionError(null)
     setClearedGoalId(null)
+    setConfirmingClear(false)
   }, [goalId])
 
   // React state disables the controls on the next render; the ref closes the
@@ -79,6 +83,7 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
 
   const handleClear = useCallback(async (clearedId: GoalSnapshot['id']) => {
     const result = await runAction(onClear)
+    setConfirmingClear(false)
     if (result?.ok) setClearedGoalId(clearedId)
   }, [onClear, runAction])
 
@@ -173,7 +178,7 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
             </button>
           </Tooltip>
           <Tooltip portal label={t('action.clear')} side="bottom" delayMs={500}>
-            <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void handleClear(goal.id) }} aria-label={t('action.clear')}>
+            <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { setConfirmingClear(true) }} aria-label={t('action.clear')}>
               <IconTrashOutlineRegular size={14} />
             </button>
           </Tooltip>
@@ -182,6 +187,23 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
           <span className={css.blocker}>{t('reason.label', { message: blocker })}</span>
         )}
       </div>
+      <Modal
+        open={confirmingClear}
+        onClose={() => { setConfirmingClear(false) }}
+        title={t('clear.title')}
+        description={t('clear.description', { objective: goal.objective })}
+        closeLabel={t('clear.dismiss')}
+        footer={(
+          <>
+            <Button variant="outline" disabled={pending} onClick={() => { setConfirmingClear(false) }}>
+              {t('clear.keep')}
+            </Button>
+            <Button variant="primary" className={css.clearConfirm} disabled={pending} onClick={() => { void handleClear(goal.id) }}>
+              {t('clear.confirm')}
+            </Button>
+          </>
+        )}
+      />
     </div>
   )
 }
