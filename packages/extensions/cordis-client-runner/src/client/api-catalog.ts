@@ -545,7 +545,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConnectionHandle',
-    declaration: 'export interface ConnectionHandle {\n    readonly isLoopback: boolean;\n    readonly remoteWrites: boolean;\n    readonly generation: ConnectionGenerationState;\n    readonly state: ConnectionStateSource;\n    readonly rpc: ClientConnectionRpc;\n    reconnect(): void;\n    registerGenerationSource(source: ConnectionGenerationSource): () => void;\n    start(sinks: ConnectionSinks, config?: ConnectionRecoveryConfig): ConnectionLoop;\n}',
+    declaration: 'export interface ConnectionHandle {\n    readonly isLoopback: boolean;\n    readonly remoteWrites: boolean;\n    readonly generation: ConnectionGenerationState;\n    readonly state: ConnectionStateSource;\n    readonly rpc: ClientConnectionRpc;\n    reconnect(): void;\n    createSignInCode(): Promise<SignInCode | undefined>;\n    registerGenerationSource(source: ConnectionGenerationSource): () => void;\n    start(sinks: ConnectionSinks, config?: ConnectionRecoveryConfig): ConnectionLoop;\n}',
   },
   {
     name: 'ConnectionHostInfo',
@@ -914,6 +914,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionTarget',
     declaration: 'export type SessionTarget = SessionId | SubagentAddress;',
+  },
+  {
+    name: 'SignInCode',
+    declaration: 'export interface SignInCode {\n    readonly code: string;\n    readonly expiresAt: number;\n}',
   },
   {
     name: 'SlotComponent',

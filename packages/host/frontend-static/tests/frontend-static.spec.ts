@@ -124,8 +124,9 @@ describe('real Loader composition', () => {
     expect(redeemed.headers.get('location')).toBe('./')
     const second = redeemed.headers.get('set-cookie')?.split(';', 1)[0]
     if (second === undefined) throw new Error('sign-in code did not set a cookie')
-    expect(await request(port, '/', { headers: { ...navigation, cookie: second } }))
-      .toMatchObject({ status: 200, body: expect.stringContaining('shell') as unknown })
+    const index = await request(port, '/', { headers: { ...navigation, cookie: second } })
+    expect(index.status).toBe(200)
+    expect(index.body).toContain('shell')
 
     // The code works once.
     const reused = await request(port, `/?code=${encodeURIComponent(code)}`, { headers: navigation })

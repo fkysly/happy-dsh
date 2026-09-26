@@ -491,7 +491,7 @@ export interface ConnectionRecoveryConfig {
 }
 ```
 
-Source: [`packages/client/connection/src/index.ts:92`](../packages/client/connection/src/index.ts)
+Source: [`packages/client/connection/src/index.ts:93`](../packages/client/connection/src/index.ts)
 
 <a id="deepseek-aidsh-client-hmr"></a>
 
