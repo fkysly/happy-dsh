@@ -159,7 +159,13 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     const copyButtons = page.getByRole('button', { name: 'Copy' })
     await expect.poll(() => copyButtons.count(), { timeout: 10_000 }).toBe(1)
     expect(await page.getByRole('button', { name: 'Branch into a new conversation' }).count()).toBe(0)
+    // Tooltips follow the last input type (a pointerdown hides the bubble on
+    // programmatic focus, a keydown shows it), so the recorded tooltip depends
+    // on which input sendPrompt ended with. Pin keyboard input and wait for the
+    // bubble instead of racing the capture's stability window.
+    await page.keyboard.press('Shift')
     await copyButtons.first().focus()
+    await page.getByRole('tooltip', { name: 'Copy' }).waitFor({ timeout: 10_000 })
     const running = await captureStableAria(page, '[class*="centerCol"]', scaffold!.workspaceCwd)
     await compareOrRefreshGolden(RUNNING_EXPECTED, running, MODE)
 
