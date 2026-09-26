@@ -209,7 +209,13 @@ export function AppFrame({
   // Desktop reopen controls occupy the frame's shell.leading seat (macOS) or
   // the Windows caption row; neither platform keeps an icon rail.
   const darwin = document.documentElement.dataset.platform === 'darwin'
-  const collapsedWidth = darwin
+  // A narrow frame keeps no rail either: the collapsed column is a desktop
+  // affordance, and on a phone it spent 56px of the reading width on a strip
+  // of unlabelled glyphs. There the closed sidebar is simply away, the centre
+  // owns the frame, and the Conversation header carries the control that
+  // brings the Session list back. macOS and the Windows caption row already
+  // reach their reopen control without a rail, so this joins them.
+  const collapsedWidth = darwin || narrow
     || document.documentElement.hasAttribute('data-windows-titlebar') ? 0 : SIDEBAR_COLLAPSED
   // Opening on a narrow frame collapses the left sidebar. Eligibility must
   // include that space before the occupant's first shown report arrives.
@@ -314,6 +320,7 @@ export function AppFrame({
           `${sidebarTrack}px minmax(${cols.rightbar === 0 ? 0 : CENTER_MIN}px, 1fr) minmax(0px, ${rightbarMax}px)`,
       }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
+      data-narrow={narrow || undefined}
       data-sidebar-drawer={drawer || undefined}
       data-rightbar-collapsed={cols.rightbar === 0 || undefined}
       data-rightbar-fullscreen={layoutInfo.rightbarFullscreen || undefined}
