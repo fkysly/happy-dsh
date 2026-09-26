@@ -237,6 +237,46 @@ button.crumb:hover {
   background: var(--dsw-alias-state-business-primary);
 }
 
+/* Touch screens: header buttons, including slot-contributed ones, keep their
+   drawn size but answer taps across at least 44 × 44 CSS px, Apple's minimum
+   hit target. The invisible layer is centred on the button and only ever
+   grows it; the smallest header button is 28px, so it reaches 8px on each
+   side, and the header controls' spacing doubles to 16px so two neighbours'
+   layers meet without overlapping. Buttons in a popup that renders inside a
+   seat keep their size, so neighbouring rows never overlap. `:where` keeps
+   the positioning below any control's own `position`. The tabs keep their
+   drawn size too: their layer spans the 10px above the strip and 9px below
+   it, reaching 44px without meeting the header controls, which sit right of
+   the tabs. `::before`, because `::after` is the active bar. */
+@media (pointer: coarse) {
+  .headerActions,
+  .headerUtilities {
+    gap: 16px;
+  }
+
+  .headerCorner {
+    margin-left: 16px;
+  }
+
+  :where(.headerLeading, .headerActions, .headerUtilities, .headerCorner)
+    button:not(:where([role='menu'], [role='listbox'], [role='dialog']) *) {
+    position: relative;
+  }
+
+  :where(.headerLeading, .headerActions, .headerUtilities, .headerCorner)
+    button:not(:where([role='menu'], [role='listbox'], [role='dialog']) *)::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px));
+  }
+
+  .tab::before {
+    content: '';
+    position: absolute;
+    inset: -10px min(0px, calc(50% - 22px)) -9px;
+  }
+}
+
 .viewArea {
   display: flex;
   flex: 1;

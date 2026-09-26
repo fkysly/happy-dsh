@@ -74,6 +74,28 @@
   cursor: pointer;
 }
 
+/* Touch screens: the row's buttons, including slot-contributed ones, keep
+   their drawn 28px size but answer taps across at least 44 × 44 CSS px,
+   Apple's minimum hit target. The invisible layer is centred on the button
+   and reaches 8px on each side, and the row's gap doubles to 16px so two
+   neighbours' layers meet without overlapping. `:where` keeps the
+   positioning below any button's own `position`. */
+@media (pointer: coarse) {
+  .actions {
+    gap: 16px;
+  }
+
+  :where(.actions) button {
+    position: relative;
+  }
+
+  :where(.actions) button::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px));
+  }
+}
+
 /* Action glyphs follow the same px delta as the text they serve; the
    assistant completion row gives them two extra pixels. */
 .action svg {

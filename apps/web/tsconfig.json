@@ -53,6 +53,7 @@
     "tests/reasoning-preview.e2e.ts",
     "tests/details-session-lifecycle.e2e.ts",
     "tests/sessionless-header.e2e.ts",
+    "tests/header-touch-targets.e2e.ts",
     "tests/document-preview.e2e.ts",
     "tests/excel-opc.e2e.ts",
     "tests/office-fixture.ts",
