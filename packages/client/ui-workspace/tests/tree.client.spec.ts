@@ -9,7 +9,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionProjectionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import {
   type ArchivedFilter,
-  deriveFlat, deriveGroups, deriveSearchResults, orderByRecency, owningGroupKey, owningParentFolder,
+  deriveFlat, deriveGroups, deriveSearchResults, orderByPriority, orderByRecency, owningGroupKey, owningParentFolder,
   pinCurrentBlank, reconcileManualOrder, sessionMemberIds, visibleSessionIds, workspaceLabel, UNGROUPED_KEY,
 } from '../src/client/tree.ts'
 import { createWorkspaceViewStore } from '../src/client/stores.ts'
@@ -107,6 +107,40 @@ describe('Session ordering', () => {
       [sid('unknown'), sid('tie-b'), sid('older'), sid('tie-a')],
       summaries,
     )).toEqual([sid('tie-a'), sid('tie-b'), sid('older')])
+  })
+
+  it('orders by attention first and recency inside each tier', () => {
+    // A phone list is short, and the newest Session is not the one waiting for
+    // an answer: what needs the operator outranks what merely happened last.
+    const sessions = list(
+      summary('newest-idle', 50), summary('running', 40), summary('unread', 30),
+      summary('waiting', 20), summary('older-idle', 10),
+    )
+    const statuses: SessionStatusSnapshot = new Map([
+      [sid('waiting'), status({ key: 'plan:1', kind: 'plan-review', sessionId: sid('waiting') } as SessionPendingInteraction)],
+      [sid('unread'), status(undefined, { completionUnread: true })],
+      [sid('running'), status(undefined, { running: true })],
+    ])
+    expect(orderByPriority(sessions.ids, sessions.byId, statuses)).toEqual([
+      sid('waiting'), sid('unread'), sid('running'), sid('newest-idle'), sid('older-idle'),
+    ])
+  })
+
+  it('breaks a priority tie by recency, then by id, and omits Sessions without a summary', () => {
+    const sessions = list(summary('tie-b', 7), summary('tie-a', 7), summary('fresher', 9))
+    const statuses: SessionStatusSnapshot = new Map([
+      [sid('tie-a'), status({ key: 'plan:a', kind: 'plan-review', sessionId: sid('tie-a') } as SessionPendingInteraction)],
+      [sid('tie-b'), status({ key: 'plan:b', kind: 'plan-review', sessionId: sid('tie-b') } as SessionPendingInteraction)],
+      [sid('fresher'), status({ key: 'plan:f', kind: 'plan-review', sessionId: sid('fresher') } as SessionPendingInteraction)],
+    ])
+    expect(orderByPriority([...sessions.ids, sid('no-summary')], sessions.byId, statuses)).toEqual([
+      sid('fresher'), sid('tie-a'), sid('tie-b'),
+    ])
+  })
+
+  it('leaves every Session in the recency tier when no baseline status exists', () => {
+    const sessions = list(summary('a', 1), summary('b', 2))
+    expect(orderByPriority(sessions.ids, sessions.byId, noAttention)).toEqual([sid('b'), sid('a')])
   })
 
   it('orders each partition strictly by Session recency, independent of pin-array order', () => {
