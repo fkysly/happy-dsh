@@ -62,6 +62,19 @@ describe('GoalBar', () => {
     expect(actions.onClear).toHaveBeenCalledTimes(1)
   })
 
+  it('dismisses the clear confirmation on Escape without clearing', () => {
+    // The dialog's own dismiss path (Escape, its close button, or the mask) must
+    // leave the goal alone, exactly as declining does.
+    const actions = makeActions()
+    render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
+    expect(screen.getByRole('dialog', { name: '清除这个目标？' })).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(actions.onClear).not.toHaveBeenCalled()
+    expect(screen.getByText('Ship the redesign')).toBeTruthy()
+  })
+
   it('keeps the goal when the clear confirmation is declined', () => {
     const actions = makeActions()
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
