@@ -2738,24 +2738,22 @@ describe('built-in conversation node Definitions', () => {
   })
 
   it('pins the interrupted Definition edges the engine cannot reach', () => {
-    const match = (seq: number, type: string, data: unknown) => ({
-      event: { seq, time: seq * 1_000, type, data },
-      role: 'start',
-      location: undefined,
-    }) as unknown as Parameters<typeof turnInterruptedDefinition.start>[1]
-    const context = (state: unknown, matches: unknown[] = []) => ({
-      key: 'k', kind: 'turn-interrupted', id: '1', matches, start: undefined, state, current: new Map(),
-    }) as unknown as Parameters<NonNullable<typeof turnInterruptedDefinition.buildViewNode>>[0]
-    const reader = { previous: () => undefined }
-
-    expect(() => turnInterruptedDefinition.start(context(undefined), match(1, 'turn/start', { turn: 1 }), reader))
+    // The engine only hands `start` the single matched turn/end, and hands
+    // `update` matches for a turn that is already open, so these edges are
+    // reached by calling the Definition directly with real event input.
+    const unrelated = at(1, 'turn/start', { turn: 1 })
+    expect(() => turnInterruptedDefinition.start({} as never, { ...unrelated, role: 'start' as const }, {} as never))
       .toThrow('turn-interrupted start requires an interrupted turn/end')
+
     const state = { turn: 1, seq: 5, time: 5_000 }
+    const updated = at(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } })
     expect(turnInterruptedDefinition.update(
-      context(state) as Parameters<typeof turnInterruptedDefinition.update>[0],
-      match(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      { kind: 'turn-interrupted', state } as never,
+      { ...updated, role: 'start' as const },
     )).toBe(state)
-    expect(turnInterruptedDefinition.buildViewNode?.(context(undefined))).toBeNull()
+
+    const pending = { kind: 'turn-interrupted', state: undefined }
+    expect(turnInterruptedDefinition.buildViewNode?.(pending as never)).toBeNull()
   })
 
   it('preserves nested Tools and manual compaction evidence when their start events are outside the window', () => {
