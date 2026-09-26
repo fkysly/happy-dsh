@@ -6,7 +6,7 @@ import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-sto
 import type { MainPanelId } from './service.ts'
 import {
   clampWidth, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN,
-  SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN,
+  SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN, sidebarOverlaysCenter,
 } from './columns.ts'
 
 /**
@@ -60,10 +60,22 @@ type LayoutActions = {
   retainMainPanels: (draft: LayoutState, panelIds: readonly string[]) => void
   setSidebar: (draft: LayoutState, px: number) => void
   toggleSidebar: (draft: LayoutState) => void
+  collapseOverlaySidebar: (draft: LayoutState) => void
   setViewportWidth: (draft: LayoutState, width: number) => void
   setRightbar: (draft: LayoutState, px: number) => void
   openRightbar: (draft: LayoutState, track: boolean, fullscreen: boolean) => void
   closeRightbar: (draft: LayoutState) => void
+}
+
+/**
+ * Sidebar width an expanded sidebar resolves to. Mirrors AppFrame's
+ * `sidebarPreference` so the store can tell an overlay frame from a wide one
+ * without the frame's solve.
+ * @param info - current layout facts.
+ * @returns the resolved expanded width in px.
+ */
+function expandedSidebarWidth(info: LayoutInfo): number {
+  return info.sidebar === 0 ? SIDEBAR_DEFAULT : clampWidth(info.sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
 }
 
 /**
@@ -109,6 +121,14 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.layoutInfo.rightbarInstant = false
         if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded
         else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : 0
+      },
+      // The overlay sidebar covers the centre, so any navigation hides what the
+      // user just chose. Only the overlay form closes here: a narrow-but-wide-
+      // enough frame keeps its column, exactly like the desktop layout.
+      collapseOverlaySidebar: (d) => {
+        if (sidebarOverlaysCenter(d.layoutInfo.viewportWidth, expandedSidebarWidth(d.layoutInfo))) {
+          d.layoutInfo.narrowExpanded = false
+        }
       },
       // Crossing the breakpoint in either direction drops the override: the
       // narrow default is auto-collapsed, the wide state is the preference.

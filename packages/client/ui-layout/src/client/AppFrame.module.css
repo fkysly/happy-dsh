@@ -67,6 +67,43 @@
   border-right: 0.5px solid var(--dsw-alias-border-l3);
 }
 
+/* Overlay drawer: the frame is too narrow for the expanded sidebar and the
+   centre to hold their contract minimums side by side, so the sidebar leaves
+   the grid (its track is zero) and covers the centre instead. The width comes
+   from the frame's solve; 100% caps it on a frame narrower than the preference,
+   where the drawer would otherwise cover the centre entirely. */
+.frame[data-sidebar-drawer] .sidebarCol {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: min(var(--dsh-sidebar-drawer-width), 100%);
+  z-index: 30;
+  border-right: none;
+  box-shadow: var(--dsw-elevation-prominent);
+}
+
+/* Out of flow, the drawer no longer claims the first track, so auto-placement
+   would shift the centre into that zero-width track. Pin the remaining columns
+   to their own tracks. */
+.frame[data-sidebar-drawer] .centerCol {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.frame[data-sidebar-drawer] .rightbarCol {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+/* Tap-to-dismiss surface for the overlay drawer: the Modal mask recipe without
+   its blur, which belongs to a modal task rather than a navigation drawer. Sits
+   under the drawer and over every column. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  background: var(--dsw-alias-bg-mask-1);
+}
+
 .centerCol {
   min-width: 0;
   display: flex;

@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { clampWidth, computeColumns } from '../src/client/columns.ts'
+import { clampWidth, computeColumns, sidebarOverlaysCenter } from '../src/client/columns.ts'
 
 describe('clampWidth', () => {
   it('clamps into the range and rounds', () => {
     expect(clampWidth(250.4, 240, 420)).toBe(250)
     expect(clampWidth(100, 240, 420)).toBe(240)
     expect(clampWidth(9999, 240, 420)).toBe(420)
+  })
+})
+
+describe('sidebarOverlaysCenter', () => {
+  it('overlays exactly while the centre could not keep its minimum beside the sidebar', () => {
+    expect(sidebarOverlaysCenter(390, 280)).toBe(true)
+    expect(sidebarOverlaysCenter(679, 280)).toBe(true)
+    expect(sidebarOverlaysCenter(680, 280)).toBe(false)
+    expect(sidebarOverlaysCenter(1024, 264)).toBe(false)
+  })
+
+  it('never overlays a closed sidebar: the rail is not a column', () => {
+    expect(sidebarOverlaysCenter(390, 0)).toBe(false)
   })
 })
 

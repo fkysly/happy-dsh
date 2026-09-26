@@ -377,6 +377,61 @@ describe('AppFrame normal width concessions', () => {
   })
 })
 
+describe('AppFrame overlay sidebar', () => {
+  function openPhoneDrawer() {
+    frameWidth = 390
+    const mounted = mountFrame()
+    act(() => { mounted.instance.actions.toggleSidebar() })
+    return mounted
+  }
+
+  it('covers the centre instead of taking a track when the frame cannot hold both', () => {
+    const { frame, sidebarOwner } = openPhoneDrawer()
+    expect(frame.dataset.sidebarDrawer).toBe('true')
+    expect(tracks(frame)).toEqual([0, 0])
+    expect(frame.style.getPropertyValue('--dsh-sidebar-drawer-width')).toBe('280px')
+    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280 })
+    expect(frame.querySelector('[data-sidebar-scrim]')).not.toBeNull()
+    expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
+  })
+
+  it('keeps the rail and no scrim while the drawer is closed', () => {
+    frameWidth = 390
+    const { frame } = mountFrame()
+    expect(frame.dataset.sidebarDrawer).toBeUndefined()
+    expect(tracks(frame)[0]).toBe(56)
+    expect(frame.querySelector('[data-sidebar-scrim]')).toBeNull()
+  })
+
+  it('closes on a scrim tap', () => {
+    const { frame, instance } = openPhoneDrawer()
+    act(() => { frame.querySelector<HTMLElement>('[data-sidebar-scrim]')!.click() })
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    expect(frame.dataset.sidebarDrawer).toBeUndefined()
+    expect(tracks(frame)[0]).toBe(56)
+  })
+
+  it('closes when the Session shown in the centre changes', () => {
+    const { frame, instance, rerenderFrame } = openPhoneDrawer()
+    rerenderFrame()
+    expect(frame.dataset.sidebarDrawer).toBe('true')
+    selectedSession = 's-other' as SessionId
+    rerenderFrame()
+    expect(instance.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    expect(frame.dataset.sidebarDrawer).toBeUndefined()
+  })
+
+  it('keeps a narrow-but-wide-enough sidebar as a column across Session changes', () => {
+    frameWidth = 800
+    const { frame, instance, rerenderFrame } = mountFrame()
+    act(() => { instance.actions.toggleSidebar() })
+    selectedSession = 's-other' as SessionId
+    rerenderFrame()
+    expect(frame.dataset.sidebarDrawer).toBeUndefined()
+    expect(tracks(frame)[0]).toBe(280)
+  })
+})
+
 describe('AppFrame right panel presentation', () => {
   it('releases the fullscreen track with the instant marker while clearing fullscreen', () => {
     const { frame, instance } = mountFrame()
