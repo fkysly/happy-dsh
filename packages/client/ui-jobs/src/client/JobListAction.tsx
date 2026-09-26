@@ -462,7 +462,8 @@ export function JobListAction({ sessionId, useJobs, watchRows, observe, killJob,
   const countKey = liveRows.length > 0
     ? (liveRows.length === 1 ? 'count.live.one' : 'count.live.other')
     : (visibleCount === 1 ? 'count.idle.one' : 'count.idle.other')
-  const countLabel = t(countKey, { count: liveRows.length > 0 ? liveRows.length : visibleCount })
+  const shownCount = liveRows.length > 0 ? liveRows.length : visibleCount
+  const countLabel = t(countKey, { count: shownCount })
 
   const clearSettled = (): void => {
     setClearedKeys((current) => {
@@ -523,6 +524,9 @@ export function JobListAction({ sessionId, useJobs, watchRows, observe, killJob,
       >
         {liveRows.length > 0 ? <StateDot state="ongoing" className={css.triggerDot} /> : null}
         <span className={css.count}>{countLabel}</span>
+        {/* Shown instead of the sentence in a narrow header; the button's
+            aria-label keeps the full count for assistive technology. */}
+        <span className={css.countShort} aria-hidden="true">{shownCount}</span>
         <IconChevronDownOutlineRegular size={12} className={open ? css.triggerOpen : undefined} />
       </button>
       {open
