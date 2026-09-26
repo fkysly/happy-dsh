@@ -950,6 +950,38 @@ describe('ChatView', () => {
     expect(translate.mock.calls.filter(([key]) => key.startsWith('message.stepProcess.'))).toHaveLength(0)
   })
 
+  it('renders live reasoning detail outside the title shimmer, in its own node', () => {
+    const snapshot = chatSnapshotFixture({ nodes: [user(1, 'member')] })
+    const h = makeHarness({}, {}, snapshot)
+    const groupStore = new ConversationGroupStore<ProcessGroupData>()
+    const group: GroupSnapshot<ProcessGroupData> = {
+      key: 'live' as GroupKey,
+      data: { turn: 1, closed: false, summary: { counts: [], running: 'commands', runningDetail: 'pwd' } },
+      members: [{ kind: 'node', key: snapshot.order[0] as NodeKey }],
+    }
+    groupStore.prepareAndInstall({
+      entries: [{ kind: 'group', key: group.key }],
+      groups: { kind: 'replace', snapshots: [group] },
+    }, key => snapshot.nodes.get(key))
+    h.setGrouped(groupStore)
+    // The product default shows the live detail; the harness store starts compact.
+    h.setTranscriptView('standard')
+    const view = render(<h.ChatView {...h.props} />)
+    const header = view.container.querySelector<HTMLElement>('[data-process-activity]')!
+    // The activity is what shimmers, not the sentence it is on: the reasoning
+    // detail sits beside the title in its own node, so a stylesheet can give it
+    // the secondary tier without also muting the title.
+    const shimmer = header.querySelector('[data-text-shimmer]')!
+    expect(shimmer.textContent).toBe(h.props.t('message.stepProcess.commands'))
+    expect(header.textContent).toBe(
+      `${h.props.t('message.stepProcess.commands')}${h.props.t('message.turnProcess.separator')}pwd`,
+    )
+    const detail = [...header.querySelectorAll('span')]
+      .find(element => element.textContent === 'pwd')
+    expect(detail).toBeDefined()
+    expect(shimmer.contains(detail!)).toBe(false)
+  })
+
   it('passes independently keyed group parts to business Node renderers', () => {
     const snapshot = chatSnapshotFixture({ nodes: [assistant(1, 'answer')] })
     const h = makeHarness({}, {}, snapshot)

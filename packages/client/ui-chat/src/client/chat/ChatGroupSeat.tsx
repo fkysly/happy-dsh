@@ -109,7 +109,6 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
     : live.preparing ? t(`message.stepProcess.prepare.${live.activity === 'thinking' ? 'tools' : live.activity}`)
       : t(`message.stepProcess.${live.activity}`)
   const detail = detailed && !data.closed ? live.detail : ''
-  const title = detail === '' ? label : `${label}${t('message.turnProcess.separator')}${detail}`
   const activity = data.closed ? data.summary.counts[0]?.kind ?? 'thinking' : live.activity
   return (
     <button type="button" className={css.title} aria-expanded={open} aria-controls={bodyId}
@@ -120,7 +119,19 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
           {open ? <IconChevronUpOutlineRegular /> : <IconChevronDownOutlineRegular />}
         </span>
       </span>
-      <TextShimmer active={!data.closed} className={css.label}>{title}</TextShimmer>
+      <TextShimmer active={!data.closed} className={css.label}>{label}</TextShimmer>
+      {/* The live reasoning detail is a trailing aside, not part of the title:
+          it carries the secondary tier (muted, one step under the body size)
+          and never shimmers, because the activity is what is running, not the
+          sentence it happens to be on. Rendering it inside the title made a
+          whole reasoning line read as body copy — in the body's own type, in
+          the body's own colour, animating. */}
+      {detail !== '' && (
+        <>
+          <span className={css.separator}>{t('message.turnProcess.separator')}</span>
+          <span className={css.detail}>{detail}</span>
+        </>
+      )}
     </button>
   )
 })
