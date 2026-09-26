@@ -77,3 +77,19 @@
   align-items: center;
   justify-content: center;
 }
+
+/* Touch screens: a shared button answers taps across at least 44 CSS px of
+   height, Apple's minimum hit target, through an invisible centred layer. The
+   layer grows vertically only: the drawn width belongs to the label, and a
+   button sitting beside another control must not reach into it. */
+@media (pointer: coarse) {
+  .button {
+    position: relative;
+  }
+
+  .button::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px)) 0;
+  }
+}

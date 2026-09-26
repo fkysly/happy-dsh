@@ -111,3 +111,31 @@
   color: var(--dsw-alias-label-caption);
   cursor: default;
 }
+
+/* Touch screens: the arrow column is revealed by hover, which a touch screen
+   never delivers, so the control sat on its value with no visible way to
+   change it until the pill happened to be focused. The arrows are always
+   visible there, laid out as a row beside the value instead of a column
+   anchored to the pill's right edge, and each one answers taps across the
+   44-point minimum itself: a 17 x 12 chip is not a target. */
+@media (pointer: coarse) {
+  .stepper {
+    min-width: 0;
+    height: 44px;
+    gap: 4px;
+    padding: 0 8px;
+  }
+
+  .arrows {
+    position: static;
+    /* DOM order is increase then decrease; the row reads as minus then plus. */
+    flex-direction: row-reverse;
+    gap: 0;
+    opacity: 1;
+  }
+
+  .arrow {
+    width: 44px;
+    height: 44px;
+  }
+}

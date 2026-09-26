@@ -31,6 +31,8 @@ Users switch the color scheme and content font size from two rows in Settings (G
 
 The plugin registers Appearance preference cubes and a font-size stepper in the General section. The stepper accepts integer values from 12 through 17 px and defaults to 14 px. It changes conversation headings and base text by the same increment, including the user bubble and composer draft; flow-row titles, summaries, and tables follow one step under the body size, while small text and code keep fixed sizes. Each accepted change writes through the Host settings API. Rapid changes serialize in gesture order with namespace revisions, and a rejected latest write reloads the durable values. Non-loopback pages keep both choices process-local.
 
+On a touch screen the stepper's arrows are always visible and laid out as a row beside the value, each drawn at 44 points: a pointer never hovers, so hover-revealed 17 × 12 chips left the font size with no discoverable way to change.
+
 ### Registering a theme
 
 A composition can register a third-party theme id with alias-token overrides through `ctx.theme`; the override layer folds into the active snapshot's tokens in registration order. Removing one never overwrites the last durable built-in preference. Third-party theme ids remain an in-process extension and do not cross the built-in settings schema.
