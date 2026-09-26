@@ -2742,14 +2742,18 @@ describe('built-in conversation node Definitions', () => {
     // `update` matches for a turn that is already open, so these edges are
     // reached by calling the Definition directly with real event input.
     const unrelated = at(1, 'turn/start', { turn: 1 })
-    expect(() => turnInterruptedDefinition.start({} as never, { ...unrelated, role: 'start' as const }, {} as never))
+    expect(() => turnInterruptedDefinition.start(
+      {} as never,
+      { ...unrelated, role: 'start' as const, location: { kind: 'session' as const } },
+      {} as never,
+    ))
       .toThrow('turn-interrupted start requires an interrupted turn/end')
 
     const state = { turn: 1, seq: 5, time: 5_000 }
     const updated = at(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } })
     expect(turnInterruptedDefinition.update(
       { kind: 'turn-interrupted', state } as never,
-      { ...updated, role: 'start' as const },
+      { ...updated, role: 'start' as const, location: { kind: 'session' as const } },
     )).toBe(state)
 
     const pending = { kind: 'turn-interrupted', state: undefined }
