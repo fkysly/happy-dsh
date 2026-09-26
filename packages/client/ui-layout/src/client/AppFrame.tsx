@@ -292,6 +292,11 @@ export function AppFrame({
   // whole and was corrected two frames later — visible jitter. cols keeps only
   // the discrete decisions (track present, collapse state) and the drag base.
   const rightbarMax = cols.rightbar === 0 ? 0 : clampWidth(rightbarPreference, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO)
+  // The occupant renders when the sidebar is open (a column or the drawer), or
+  // when a collapsed rail has width to draw into. A zero-width column would
+  // otherwise keep the rail's controls in the document — unreachable by pointer
+  // because the column clips them, but still focusable and announced.
+  const sidebarVisible = !sidebarCollapsed || collapsedWidth > 0
   const sidebar = useMemo(() => renderSlot('sidebar', {
     collapsed: sidebarCollapsed,
     width: cols.sidebar,
@@ -341,7 +346,7 @@ export function AppFrame({
       <DrawerNavigationClose useSessions={useSessions} onNavigate={actions.collapseOverlaySidebar} />
       {drawer && <div className={css.scrim} data-sidebar-scrim aria-hidden="true" onClick={actions.collapseOverlaySidebar} />}
       <div className={css.sidebarCol}>
-        {sidebar}
+        {sidebarVisible ? sidebar : null}
       </div>
       <>
         <CenterColumn>{main}</CenterColumn>
