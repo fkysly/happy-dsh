@@ -65,7 +65,7 @@ export interface SessionNode {
 }
 
 /** Session order selected by the Workspace browser. */
-export type SessionOrderBy = 'manual' | 'updated'
+export type SessionOrderBy = 'manual' | 'updated' | 'priority'
 
 /** One workspace group section: header row facts + visible top-level session rows. */
 export interface GroupNode {
@@ -160,6 +160,53 @@ export function orderByRecency(
     })
     .map(member => member.id)
 }
+
+/**
+ * Order Sessions by what needs the user, then by recency.
+ *
+ * The tiers follow the Session status the list already renders: a Session
+ * awaiting this user comes first, then one whose finished turn has not been
+ * read, then one still running, and finally everything by recency. This is the
+ * "which of my tasks is stuck on me" ordering: on a phone the list is short
+ * and the newest Session is not necessarily the one waiting for an answer.
+ * @param sessionIds - candidates in their authoritative membership order.
+ * @param summaries - current Session summaries; ids without one are omitted until it arrives.
+ * @param statuses - current Session UI status, absent for Sessions without a baseline.
+ * @returns ordered ids, attention tier first and newest first within a tier.
+ */
+export function orderByPriority(
+  sessionIds: readonly SessionId[],
+  summaries: SessionListState['byId'],
+  statuses: SessionStatuses,
+): SessionId[] {
+  const tier = (id: SessionId): number => {
+    const status = statuses.get(id)
+    if (status === undefined) return PRIORITY_TIERS.rest
+    if (visiblePendingKind(status.pendingInteraction?.kind) !== undefined) return PRIORITY_TIERS.needsYou
+    if (status.completionUnread) return PRIORITY_TIERS.unread
+    if (status.running) return PRIORITY_TIERS.running
+    return PRIORITY_TIERS.rest
+  }
+  return sessionIds.flatMap((id) => {
+    const summary = summaries[id]
+    if (summary === undefined) return []
+    return [{ id, tier: tier(id), rank: summary.updatedAt }]
+  })
+    .sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier
+      if (a.rank !== b.rank) return b.rank - a.rank
+      return a.id < b.id ? -1 : 1
+    })
+    .map(member => member.id)
+}
+
+/** Attention tiers, lowest number first. */
+const PRIORITY_TIERS = {
+  needsYou: 0,
+  unread: 1,
+  running: 2,
+  rest: 3,
+} as const
 
 /**
  * Reconcile a browser-local manual order with current account membership.
