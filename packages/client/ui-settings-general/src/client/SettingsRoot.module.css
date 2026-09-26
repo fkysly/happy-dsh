@@ -51,6 +51,22 @@
   padding: 0;
 }
 
+/* Touch screens: the rail trigger keeps its drawn 36px size but answers taps
+   across at least 44 × 44 (see ui-sidebar SidebarRoot.module.css). */
+@media (pointer: coarse) {
+  /* The trigger clips its label when wide; in the rail it is an icon. */
+  .trigger.rail {
+    position: relative;
+    overflow: visible;
+  }
+
+  .trigger.rail::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px));
+  }
+}
+
 .triggerLabel {
   overflow: hidden;
   white-space: nowrap;

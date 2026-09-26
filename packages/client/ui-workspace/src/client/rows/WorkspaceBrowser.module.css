@@ -587,3 +587,27 @@
     transition: none;
   }
 }
+
+/* Touch screens: the rail's workspace controls keep their drawn 36px size but
+   answer taps across at least 44 × 44 (see ui-sidebar SidebarRoot.module.css).
+   The collapsed search frame stops clipping so its button's layer reaches
+   past it; in the rail the button draws its own rounding. */
+@media (pointer: coarse) {
+  .rail .search,
+  .rail .sectionHeader,
+  .rail .headerActions {
+    overflow: visible;
+  }
+
+  .rail .iconButton,
+  .rail .searchButton {
+    position: relative;
+  }
+
+  .rail .iconButton::after,
+  .rail .searchButton::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px));
+  }
+}

@@ -587,3 +587,37 @@
     animation: none;
   }
 }
+
+/* Touch screens: rail controls keep their drawn 36px size but answer taps
+   across at least 44 × 44, Apple's minimum hit target. The invisible layer is
+   centred on the control and only ever grows it; the rail's single column
+   and 12px spacing keep neighbours' layers apart. The expanded header toggle
+   (28px) gets the same layer; the brand row clips it horizontally, where the
+   brand text needs clipping, so there it grows vertically only. */
+@media (pointer: coarse) {
+  /* The rail holds icons only, so its rows need not clip; clipping would cut
+     the enlarged layers off at the row edges. */
+  .collapsed .logoRow,
+  .collapsed .regionArea,
+  .collapsed .footArea {
+    overflow: visible;
+  }
+
+  .collapsed .newSession,
+  .collapsed .panelRow {
+    position: relative;
+  }
+
+  /* New Session clips its label when wide; in the rail it is an icon. */
+  .collapsed .newSession {
+    overflow: visible;
+  }
+
+  .iconButton::after,
+  .collapsed .newSession::after,
+  .collapsed .panelRow::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px));
+  }
+}
