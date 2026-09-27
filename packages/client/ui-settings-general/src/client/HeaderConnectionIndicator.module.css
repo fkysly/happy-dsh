@@ -1,0 +1,19 @@
+/* The header carries the connection state only where nothing else can: a narrow
+   frame whose sidebar is closed has no rail and no footer on screen. Both are
+   attributes the frame publishes for its own solve, the same pair that shows
+   the Session-list control, so the two appear and leave together. */
+.seat {
+  display: none;
+}
+
+[data-narrow][data-sidebar-collapsed] .seat {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+/* Connected: the indicator renders nothing, and an empty seat must not add a
+   gap beside the Session-list control. */
+[data-narrow][data-sidebar-collapsed] .seat:empty {
+  display: none;
+}

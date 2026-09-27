@@ -2,7 +2,7 @@
 import {
   IconChevronLeftOutlineRegular, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the Conversation header's leading slot declaration.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SidebarRootInjected } from './contract/slots.ts'
@@ -11,6 +11,7 @@ import css from './SessionListBackButton.module.css'
 /** Full props of the Conversation header's leading occupant. */
 export type SessionListBackButtonProps =
   PropsRuntime<'conversation.header.leading'>
+  & PropsRenderSlots<'sidebar.header.status'>
   & InjectFace<SidebarRootInjected>
   & PropsLocale<'sidebar'>
 
@@ -23,23 +24,26 @@ export type SessionListBackButtonProps =
  * shows it only under the frame's narrow marker: a wide frame keeps the list
  * beside the Conversation and the header's leading seat stays free.
  * @param props - Injected sidebar actions plus the sidebar locale seat.
- * @returns the Session-list control.
+ * @returns the Session-list control, followed by the header status it declares.
  */
-export function SessionListBackButton({ toggleSidebar, t }: SessionListBackButtonProps) {
+export function SessionListBackButton({ toggleSidebar, renderSlot, t }: SessionListBackButtonProps) {
   // Visibility is the stylesheet's decision, not a prop: the slot carries no
   // owner state, and the frame already publishes both facts the rule needs
   // (narrow, and the sidebar collapsed) as attributes on itself.
   return (
-    <Tooltip label={t('header.backToSessions')} side="bottom" delayMs={500}>
-      <button
-        type="button"
-        className={css.listButton}
-        aria-label={t('header.backToSessions')}
-        onClick={() => { toggleSidebar() }}
-      >
-        <IconChevronLeftOutlineRegular size={16} />
-        <span className={css.label}>{t('header.sessions')}</span>
-      </button>
-    </Tooltip>
+    <>
+      <Tooltip label={t('header.backToSessions')} side="bottom" delayMs={500}>
+        <button
+          type="button"
+          className={css.listButton}
+          aria-label={t('header.backToSessions')}
+          onClick={() => { toggleSidebar() }}
+        >
+          <IconChevronLeftOutlineRegular size={16} />
+          <span className={css.label}>{t('header.sessions')}</span>
+        </button>
+      </Tooltip>
+      {renderSlot('sidebar.header.status', {})}
+    </>
   )
 }

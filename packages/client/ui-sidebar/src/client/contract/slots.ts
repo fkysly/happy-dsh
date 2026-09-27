@@ -50,6 +50,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * package's 'sidebar' entry; each action receives only the column state.
      */
     'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: SidebarFooterActionOwnerProps }
+    /**
+     * Status beside the Conversation header's Session-list control, on a frame
+     * whose list is a closed screen. Declared by this package's
+     * 'conversation.header.leading' occupant, the one header seat that renders
+     * for every Session including a blank one.
+     */
+    'sidebar.header.status': { kind: 'list'; scope: 'root'; owner: Record<never, never> }
   }
 }
 

@@ -93,24 +93,25 @@ it('shows the outage on a phone without opening the drawer, and recovers through
   onTestFinished(() => scaffold.close())
   const browser = await chromium.launch()
   onTestFinished(() => browser.close())
-  // A phone keeps the sidebar as a closed drawer, so the expanded row's
-  // connection indicator is never on screen: the state has to reach the
-  // always-visible rail, as a 44-point target of its own.
+  // A phone keeps the Session list as a closed screen, so the footer's status
+  // line is never on screen: the state has to reach the Conversation header,
+  // as a 44-point target of its own.
   const context = await browser.newContext({ ...devices['iPhone 13'], locale: 'en-US' })
   onTestFinished(() => context.close())
   const page = await context.newPage()
   const console = watchConsole(page)
   onTestFailed(() => saveFailureShot(page, 'web-e2e-connection-recovery-phone'))
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-  await page.getByRole('button', { name: 'Open sidebar' }).first().waitFor({ timeout: 30_000 })
+  const listControl = page.getByRole('button', { name: 'Back to sessions', exact: true })
+  await listControl.waitFor({ timeout: 30_000 })
   const outage = page.getByRole('button', { name: /^Disconnected/ })
   await expect.poll(() => outage.count(), { timeout: 5_000 }).toBe(0)
 
   await context.setOffline(true)
   await expect.poll(() => outage.count(), { timeout: 20_000 }).toBe(1)
-  // The drawer stayed closed: the control is on screen because the rail is,
+  // The list stayed closed: the control is on screen because the header is,
   // not because a surface was opened for it.
-  expect(await page.getByRole('button', { name: 'Open sidebar' }).count()).toBe(1)
+  expect(await listControl.isVisible()).toBe(true)
   const report = await outage.evaluate((control) => {
     const rect = control.getBoundingClientRect()
     const cx = rect.x + rect.width / 2
@@ -136,7 +137,8 @@ it('shows the outage on a phone without opening the drawer, and recovers through
 
   await context.setOffline(false)
   await expect.poll(() => page.getByRole('status', { name: 'Connected' }).count(), { timeout: 30_000 }).toBe(1)
-  // The confirmation is transient: the rail returns to carrying only controls.
+  // The confirmation is transient: the header returns to carrying only the
+  // Session-list control.
   await expect.poll(() => page.getByRole('status', { name: 'Connected' }).count(), { timeout: 15_000 }).toBe(0)
   expect(console.pageErrors).toEqual([])
 }, 120_000)

@@ -10,7 +10,7 @@
  * sessions-derived empty-Hero fact is active. Visible dialog chrome belongs
  * to the step, so a mounted-but-deciding step paints nothing here.
  */
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
   ConnectionIndicator,
@@ -18,15 +18,10 @@ import {
   IconAgentPresetOutlineMedium, IconArchiveOutlineMedium, IconCloseOutlineRegular, IconDataOutlineMedium,
   IconPersonalizationOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
 import css from './SettingsRoot.module.css'
 import { DesktopUpdateIndicator } from './DesktopUpdateIndicator.tsx'
-
-const RECOVERY_CONFIRMATION_MS = 2_000
-
-/** Minimum visible time for the connecting pill; shorter attempts read as flicker. */
-const CONNECTING_MIN_VISIBLE_MS = 800
+import { useConnectionFeedback } from './connection-feedback.ts'
 
 /** Nav glyph by section id; unknown ids fall back to the settings gear. */
 function navIcon(id: string) {
@@ -121,9 +116,6 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   const [activeId, setActiveId] = useState<string | undefined>(undefined)
   const [requestedOnboarding, setRequestedOnboarding] = useState<string | undefined>()
   const [completedOnboarding, setCompletedOnboarding] = useState<ReadonlySet<string>>(() => new Set())
-  const [showRecovery, setShowRecovery] = useState(false)
-  const [holdConnecting, setHoldConnecting] = useState(false)
-  const connectingShownAt = useRef<number | undefined>(undefined)
   const triggerRow = useRef<HTMLDivElement | null>(null)
   const triggerButton = useRef<HTMLButtonElement | null>(null)
   const wasOpen = useRef(open)
@@ -147,7 +139,6 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   const rows = useSections(s => s)
   const desktopUpdate = useDesktopUpdate(state => state)
   const connectionState = useConnectionState(state => state)
-  const previousConnectionState = useRef(connectionState)
   const onboardingSteps = useOnboardingSteps(s => s)
   const onboardingActive = useSessions((state) => {
     const main = Object.values(state.byId)
@@ -165,43 +156,6 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     setCompletedOnboarding(new Set())
   }, [onboardingActive])
 
-  useLayoutEffect(() => {
-    const previous = previousConnectionState.current
-    previousConnectionState.current = connectionState
-    if (connectionState !== 'connected') {
-      setShowRecovery(false)
-      return
-    }
-    if (previous !== 'disconnected' && previous !== 'connecting') return
-    setShowRecovery(true)
-  }, [connectionState])
-
-  // The confirmation window starts when the recovered pill becomes visible,
-  // which the connecting minimum-visible hold can delay past the transition.
-  useLayoutEffect(() => {
-    if (!showRecovery || holdConnecting) return
-    const timeout = window.setTimeout(() => { setShowRecovery(false) }, RECOVERY_CONFIRMATION_MS)
-    return () => { window.clearTimeout(timeout) }
-  }, [showRecovery, holdConnecting])
-
-  useLayoutEffect(() => {
-    if (connectionState === 'connecting') {
-      connectingShownAt.current = Date.now()
-      return
-    }
-    const shownAt = connectingShownAt.current
-    if (shownAt === undefined) return
-    connectingShownAt.current = undefined
-    const remaining = CONNECTING_MIN_VISIBLE_MS - (Date.now() - shownAt)
-    if (remaining <= 0) return
-    setHoldConnecting(true)
-    const timeout = window.setTimeout(() => { setHoldConnecting(false) }, remaining)
-    return () => {
-      window.clearTimeout(timeout)
-      setHoldConnecting(false)
-    }
-  }, [connectionState])
-
   const completeOnboardingStep = useCallback((id: string) => {
     setRequestedOnboarding(undefined)
     setCompletedOnboarding((previous) => {
@@ -210,19 +164,13 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     })
   }, [])
 
-  let connectionIndicator: ConnectionIndicatorState | undefined
-  if (connectionState === 'connecting' || holdConnecting) {
-    connectionIndicator = 'connecting'
-  } else if (connectionState === 'disconnected') {
-    connectionIndicator = 'disconnected'
-  } else if (showRecovery) {
-    connectionIndicator = 'recovered'
-  }
-  // The dot carries the state that outlives a notice: `ongoing` while retrying,
-  // `warning` while the link is down, `done` once it is up.
+  const connectionIndicator = useConnectionFeedback(connectionState)
+  // The dot carries the state that outlives a notice: `ongoing` while retrying
+  // (including the connecting hold), `warning` while the link is down, `done`
+  // once it is up.
   const connectionDot = connectionState === 'disconnected'
     ? 'warning'
-    : connectionState === 'connecting' || holdConnecting ? 'ongoing' : 'done'
+    : connectionIndicator === 'connecting' ? 'ongoing' : 'done'
 
   return (
     <>
