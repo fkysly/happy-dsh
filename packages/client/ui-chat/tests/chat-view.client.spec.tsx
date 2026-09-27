@@ -10,7 +10,7 @@ import type {
   AssistantMessageNode, ChatNode, ChatNodeHookContext, ChatNodeOwnerProps, ChatSnapshot,
   ChatViewSlotProps, CommandNode, CompactionSummaryNode, ContextMessageNode, ConversationNode,
   LegacyConversationSlice, ModelRetryNode, StartedToolCall, SteeringMessageNode,
-  ToolCallBlock, ToolResultNode, TurnErrorNode, TurnMaxTokensNode, UseChatNodeTurnData,
+  ToolCallBlock, ToolResultNode, TurnErrorNode, TurnInterruptedNode, TurnMaxTokensNode, UseChatNodeTurnData,
   TranscriptViewMode, UserMessageNode,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {
@@ -40,7 +40,7 @@ import { AssistantNodeView } from '../src/client/chat/AssistantNodeView.tsx'
 import { CommandNodeView, ManualCompactionNodeView } from '../src/client/chat/CommandNodeView.tsx'
 import {
   CompactionNodeView, ContextMessageNodeView, RetryNodeView, TurnErrorNodeView,
-  TurnMaxTokensNodeView, UnknownNodeView, UserMessageNodeView,
+  TurnInterruptedNodeView, TurnMaxTokensNodeView, UnknownNodeView, UserMessageNodeView,
 } from '../src/client/chat/MessageItem.tsx'
 import { TurnTailNodeView } from '../src/client/chat/TurnTailNodeView.tsx'
 import { TurnProcessNodeView } from '../src/client/chat/TurnProcessNodeView.tsx'
@@ -200,6 +200,9 @@ const turnError = (seq: number, code?: string): TurnErrorNode => ({
 const turnMaxTokens = (seq: number): TurnMaxTokensNode => ({
   kind: 'turn-max-tokens', seq, time: seq * 1_000, turn: 1, step: 0,
 })
+const turnInterrupted = (seq: number): TurnInterruptedNode => ({
+  kind: 'turn-interrupted', seq, time: seq * 1_000, turn: 1, step: 0,
+})
 const toolResult = (seq: number, callId: string, name = 'bash'): ToolResultNode => ({
   kind: 'tool-result', seq, time: seq * 1_000, callId,
   call: { name, argsRaw: `{"command":"cmd-${callId}","description":"run ${callId}"}` },
@@ -304,6 +307,7 @@ function makeHarness(
     read: () => savedScroll,
   }
   const forkAt = vi.fn()
+  const continueTurn = vi.fn()
   // Rows and the harness must observe the same chat-store instance.
   const chat = createChatStore().create()
   const transcriptView = createSnapshotStore<TranscriptViewMode>('compact')
@@ -360,6 +364,8 @@ function makeHarness(
         return <TurnErrorNodeView {...nodeProps} node={nodeOwner.node} />
       case 'turn-max-tokens':
         return <TurnMaxTokensNodeView {...nodeProps} node={nodeOwner.node} />
+      case 'turn-interrupted':
+        return <TurnInterruptedNodeView {...nodeProps} node={nodeOwner.node} />
       case 'turn-process':
         return <TurnProcessNodeView {...nodeProps} node={nodeOwner.node} />
       case 'system-prompt':
@@ -453,6 +459,7 @@ function makeHarness(
     loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
     chatScroll,
     forkAt,
+    continueTurn,
     // Absent-service default; mention tests override with a real resolver.
     fileMentions: () => undefined,
     t,
@@ -479,7 +486,7 @@ function makeHarness(
     set, setSession: session.set, setChat: chatSource.set, ChatView, props,
     openFile, openSkill, loadOlder, loadThrough, openView,
     setOutline: (value: unknown) => { outlineValue = value },
-    chatScroll, forkAt, toolOwners,
+    chatScroll, forkAt, continueTurn, toolOwners,
     setPerformanceUsage: (mode: 'compact' | 'detailed') => { performanceUsage.set(mode) },
     setGrouped: (value: ConversationGroupedView<ProcessGroupData> | undefined) => {
       grouped = value
@@ -2162,6 +2169,18 @@ describe('ChatView', () => {
       '已达到输出 token 上限回答被截断，已有输出保留在对话中。发送“继续”可让模型接着输出。',
     ])
     expect(view.queryByText('本轮运行失败')).toBeNull()
+  })
+
+  it('offers a working Continue on a turn the service interrupted', () => {
+    const h = makeHarness({ nodes: [user(1, 'try'), assistant(2, 'half an answer'), turnInterrupted(3)] })
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.getAllByRole('status').map(status => status.textContent)).toEqual([
+      '上一轮被中断服务重启打断了这一轮，已有输出保留在对话中。继续',
+    ])
+    expect(view.queryByText('已达到输出 token 上限')).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: '继续' }))
+    // The button sends the same continuation the max-tokens guidance names.
+    expect(h.continueTurn).toHaveBeenCalledWith('继续')
   })
 
   it('removes Inspect when trajectory is unavailable and restores it with the view', () => {

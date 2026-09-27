@@ -220,6 +220,17 @@ export function apply(ctx: Context): void {
                 // Fork or child-title failure leaves the source view unchanged.
               })
           },
+          continueTurn: (text) => {
+            const actx = ctx.sessions.scope(sessionId)
+            const conversation = actx?.conversation
+            if (actx === undefined || conversation === undefined) return
+            // Queue, not steer: the interrupted turn has already ended, so the
+            // continuation opens the Session's next turn. A rejected send keeps
+            // the notice in place for another attempt and tells the operator why.
+            void conversation.send(text).catch((error: unknown) => {
+              conversation.input.for(actx).notify('error', error instanceof Error ? error.message : String(error))
+            })
+          },
         }
       },
     }, ChatView)

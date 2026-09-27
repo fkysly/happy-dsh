@@ -1,4 +1,4 @@
-import { Fragment, memo, useEffect, useMemo, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { MessageImageSource } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -149,6 +149,25 @@ function TurnMaxTokensItem({ t }: {
         <span className={css.maxTokensTitle}>{t('message.maxTokens')}</span>
         <span className={css.turnErrorMessage}>{t('message.maxTokens.hint')}</span>
       </div>
+    </div>
+  )
+}
+
+/** Persistent, turn-positioned notice for a turn the service interrupted. */
+function TurnInterruptedItem({ t, onContinue }: {
+  t: ChatViewSlotProps['t']
+  onContinue: () => void
+}) {
+  return (
+    <div className={css.turnErrorRow} role="status">
+      <StateDot state="warning" className={css.turnErrorDot} />
+      <div className={css.turnErrorCopy}>
+        <span className={css.maxTokensTitle}>{t('message.turnInterrupted')}</span>
+        <span className={css.turnErrorMessage}>{t('message.turnInterrupted.hint')}</span>
+      </div>
+      <button type="button" className={css.turnNoticeAction} onClick={onContinue}>
+        {t('message.turnInterrupted.continue')}
+      </button>
     </div>
   )
 }
@@ -370,6 +389,14 @@ export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t }: Ch
 /** Max-tokens turn-end notice keyed Chat renderer. */
 export const TurnMaxTokensNodeView = memo(function TurnMaxTokensNodeView({ t }: ChatNodeViewProps<'turn-max-tokens'>) {
   return <TurnMaxTokensItem t={t} />
+})
+
+/** Interrupted turn-end notice keyed Chat renderer. */
+export const TurnInterruptedNodeView = memo(function TurnInterruptedNodeView(
+  { t, continueTurn }: ChatNodeViewProps<'turn-interrupted'>,
+) {
+  const onContinue = useCallback(() => { continueTurn(t('message.turnInterrupted.send')) }, [continueTurn, t])
+  return <TurnInterruptedItem t={t} onContinue={onContinue} />
 })
 
 /** Explicit unknown-surface keyed Chat renderer. */

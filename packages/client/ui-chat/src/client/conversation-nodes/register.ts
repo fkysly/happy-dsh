@@ -10,6 +10,7 @@ import { registerRequestPromptConversationNode } from './request-prompt.ts'
 import { registerRetryConversationNode } from './retry.ts'
 import { registerToolConversationNode } from './tool.ts'
 import { registerTurnErrorConversationNode } from './turn-error.ts'
+import { registerTurnInterruptedConversationNode } from './turn-interrupted.ts'
 import { registerTurnMaxTokensConversationNode } from './turn-max-tokens.ts'
 import { registerTurnProcess } from './turn-process.ts'
 import { registerTurnTailConversationNode } from './turn-tail.ts'
@@ -31,6 +32,7 @@ export function registerConversationNodes(ctx: Context): void {
   registerRetryConversationNode(ctx)
   registerTurnErrorConversationNode(ctx)
   registerTurnMaxTokensConversationNode(ctx)
+  registerTurnInterruptedConversationNode(ctx)
   registerTurnTailConversationNode(ctx)
   registerUnknownConversationFallback(ctx)
   registerChatConversationView(ctx)
