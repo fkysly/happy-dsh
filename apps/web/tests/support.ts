@@ -309,6 +309,14 @@ export async function openSettings(page: Page, locale: 'en' | 'zh'): Promise<voi
     await page.getByRole('button', { name: locale === 'zh' ? '账号菜单' : 'Account menu', exact: true }).click()
     await page.getByRole('menuitem', { name: label, exact: true }).click()
   } else {
-    await page.getByRole('button', { name: label, exact: true }).click()
+    // A narrow frame keeps no rail, so the Settings entry lives in the
+    // Session-list drawer and the Conversation header's control opens it.
+    const entry = page.getByRole('button', { name: label, exact: true })
+    const list = page.getByRole('button', {
+      name: locale === 'zh' ? '返回会话列表' : 'Back to sessions', exact: true,
+    })
+    await list.or(entry).first().waitFor({ state: 'visible', timeout: 30_000 })
+    if (await list.isVisible()) await list.click()
+    await entry.click()
   }
 }

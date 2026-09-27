@@ -179,6 +179,11 @@ describe.skipIf(MODE === 'record')('web e2e: touch hit areas', () => {
     await collapse.click()
     await wide.getByRole('button', { name: 'Open sidebar' }).first().waitFor({ timeout: 10_000 })
     expect(await wide.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true)
+    // A live collapse holds the expanded presentation for its settle delay
+    // before the rail layout applies, so sample the rail once its drawn boxes
+    // settle instead of reading a control mid-slide.
+    await expect.poll(async () => (await probe(wide, RAIL_CONTROLS)).map(report => report.drawn), { timeout: 10_000 })
+      .toEqual(RAIL_CONTROLS.map(() => [36, 36]))
     const reports = await probe(wide, RAIL_CONTROLS)
     for (const report of reports) {
       // The drawn size is unchanged; only the hit area grows.

@@ -200,8 +200,11 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
 
     // Find the content-dependent transition on this platform's fonts, never a
     // committed pixel threshold. The old 360px rule cannot satisfy this case.
+    // A narrow frame no longer spends the collapsed rail's 56px on the
+    // composer's row, so the transition sits 56px lower on the viewport than
+    // the old 650px floor; the window extends below it in the same 10px steps.
     let narrowViewport: number | undefined
-    for (let width = 1100; width >= 650; width -= 10) {
+    for (let width = 1100; width >= 560; width -= 10) {
       await resizeControls(page, width)
       const layout = await controlLayout(page)
       if (layout.width > 360 && layout.icon && !layout.text) {
