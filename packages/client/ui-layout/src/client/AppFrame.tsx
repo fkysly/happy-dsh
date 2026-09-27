@@ -295,8 +295,11 @@ export function AppFrame({
   // The occupant renders when the sidebar is open (a column or the drawer), or
   // when a collapsed rail has width to draw into. A zero-width column would
   // otherwise keep the rail's controls in the document — unreachable by pointer
-  // because the column clips them, but still focusable and announced.
+  // because the column clips them, but still focusable and announced. Windows
+  // is the exception: the window's caption controls are mounted inside this
+  // occupant, so they stay present even in the zero-width column.
   const sidebarVisible = !sidebarCollapsed || collapsedWidth > 0
+    || document.documentElement.hasAttribute('data-windows-titlebar')
   const sidebar = useMemo(() => renderSlot('sidebar', {
     collapsed: sidebarCollapsed,
     width: cols.sidebar,
