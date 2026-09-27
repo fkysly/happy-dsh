@@ -138,6 +138,29 @@ describe('Session ordering', () => {
     ])
   })
 
+  it('ranks a running Session above one that is merely idle', () => {
+    // `running` sits below `unread` and above the baseline: a turn in flight is
+    // attention worth showing, but a person waiting on an answer outranks it.
+    const sessions = list(summary('moving', 1), summary('still', 9))
+    const statuses: SessionStatusSnapshot = new Map([
+      [sid('moving'), status(undefined, { running: true })],
+      [sid('still'), status(undefined)],
+    ])
+    expect(orderByPriority(sessions.ids, sessions.byId, statuses)).toEqual([sid('moving'), sid('still')])
+  })
+
+  it('orders Sessions that agree on tier and recency by id', () => {
+    // Ascending ids make the comparator see the earlier id as the larger one,
+    // which is the tie-break's other arm.
+    const sessions = list(summary('aa', 5), summary('bb', 5), summary('cc', 5))
+    const statuses: SessionStatusSnapshot = new Map([
+      [sid('aa'), status(undefined)],
+      [sid('bb'), status(undefined)],
+      [sid('cc'), status(undefined)],
+    ])
+    expect(orderByPriority(sessions.ids, sessions.byId, statuses)).toEqual([sid('aa'), sid('bb'), sid('cc')])
+  })
+
   it('leaves every Session in the recency tier when no baseline status exists', () => {
     const sessions = list(summary('a', 1), summary('b', 2))
     expect(orderByPriority(sessions.ids, sessions.byId, noAttention)).toEqual([sid('b'), sid('a')])
