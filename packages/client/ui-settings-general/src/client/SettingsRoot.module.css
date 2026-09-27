@@ -1,3 +1,12 @@
+/* The footer's own column: the status line, the settings trigger, and the
+   update badge stack in both the drawer and the closed rail. */
+.footerStack {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 /* The connection status line reserves its height in every state: a notice that
    appears and clears must not move the rows around it. The dot is always
    present, so the line is the state's anchor and never a surprise. */

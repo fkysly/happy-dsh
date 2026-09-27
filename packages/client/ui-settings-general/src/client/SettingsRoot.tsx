@@ -226,37 +226,42 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
 
   return (
     <>
-      {/* The status line holds its height in every state, so a connection
-          notice appearing or clearing never moves the rows around it. The dot
-          is always present; only a retry or a confirmation adds text beside
-          it. */}
-      <div className={clsx(css.statusRow, !wide && css.statusRailRow)} data-connection-status>
-        {wide && <StateDot state={connectionDot} className={css.statusDot} />}
-        <ConnectionIndicator
-          state={desktopUpdate.presentation?.phase !== 'installing' ? connectionIndicator : undefined}
-          compact={!wide}
-          disconnectedLabel={t('connection.error')}
-          connectingLabel={t('connection.connecting')}
-          recoveredLabel={t('connection.connected')}
-          reconnectActionLabel={t('connection.reconnect')}
-          restartActionLabel={t('connection.restart')}
-          onReconnect={reconnect}
-        />
-      </div>
-      <div ref={triggerRow} className={clsx(css.triggerRow, !wide && css.railRow)}>
-        {renderSlot('settings.launcher', { wide, openSettings: () => { setOpen(true) }, openOnboarding: (id) => { setOpen(false); setRequestedOnboarding(id) } }, { fallback: <button
-          ref={triggerButton}
-          type="button"
-          className={clsx(css.trigger, !wide && css.rail)}
-          aria-label={t('trigger')}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          onClick={() => { setOpen(true) }}
-        >
-          {renderSlot('settings.trigger', { wide })}
-        </button> })}
-        <DesktopUpdateIndicator wide={wide} hidden={connectionIndicator !== undefined && desktopUpdate.presentation?.phase !== 'installing'}
-          t={t} view={desktopUpdate} onOpen={openDesktopUpdate} />
+      {/* One column in both modes: the closed rail lays its footer out as a
+          row, which would otherwise strand the status line outside the 36px
+          column it belongs to. */}
+      <div className={css.footerStack}>
+        {/* The status line holds its height in every state, so a connection
+            notice appearing or clearing never moves the rows around it. The dot
+            is always present; only a retry or a confirmation adds text beside
+            it. */}
+        <div className={clsx(css.statusRow, !wide && css.statusRailRow)} data-connection-status>
+          {wide && <StateDot state={connectionDot} className={css.statusDot} />}
+          <ConnectionIndicator
+            state={desktopUpdate.presentation?.phase !== 'installing' ? connectionIndicator : undefined}
+            compact={!wide}
+            disconnectedLabel={t('connection.error')}
+            connectingLabel={t('connection.connecting')}
+            recoveredLabel={t('connection.connected')}
+            reconnectActionLabel={t('connection.reconnect')}
+            restartActionLabel={t('connection.restart')}
+            onReconnect={reconnect}
+          />
+        </div>
+        <div ref={triggerRow} className={clsx(css.triggerRow, !wide && css.railRow)}>
+          {renderSlot('settings.launcher', { wide, openSettings: () => { setOpen(true) }, openOnboarding: (id) => { setOpen(false); setRequestedOnboarding(id) } }, { fallback: <button
+            ref={triggerButton}
+            type="button"
+            className={clsx(css.trigger, !wide && css.rail)}
+            aria-label={t('trigger')}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={() => { setOpen(true) }}
+          >
+            {renderSlot('settings.trigger', { wide })}
+          </button> })}
+          <DesktopUpdateIndicator wide={wide} hidden={connectionIndicator !== undefined && desktopUpdate.presentation?.phase !== 'installing'}
+            t={t} view={desktopUpdate} onOpen={openDesktopUpdate} />
+        </div>
       </div>
       {open && (
         <SettingsPanel
