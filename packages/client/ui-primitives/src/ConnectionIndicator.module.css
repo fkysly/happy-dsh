@@ -41,6 +41,13 @@
   color: var(--dsw-alias-state-warn-primary);
 }
 
+/* Rest is plain status text, but a finger still gets an answer: the fill exists
+   only while the control is held, so the line never reads as a permanent
+   capsule beside Settings. */
+.warning:active {
+  background: var(--dsw-alias-state-warn-tertiary);
+}
+
 .warning:focus-visible {
   outline: 2px solid var(--dsw-alias-state-warn-label);
   outline-offset: 2px;
