@@ -100,6 +100,9 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('conversation.header.leading', () => ctx.slots.register({
     name: 'conversation.header.leading',
     locale: NS,
+    children: {
+      'sidebar.header.status': { kind: 'list', scope: 'root' },
+    },
     inject: injectProps,
   }, SessionListBackButton))
   syncPanels()

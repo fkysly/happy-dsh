@@ -8,6 +8,8 @@ import { SessionListBackButton, type SessionListBackButtonProps } from '../src/c
 // English-dictionary translate stub: the occupant renders the same copy the
 // assertions below query by accessible name and by visible label.
 const t = ((key: string) => (en as Record<string, string>)[key] ?? key) as SessionListBackButtonProps['t']
+// Stands in for the header status seat; the occupant renders it after the control.
+const renderSlot = ((name: string) => <span data-testid="status-seat" data-slot={name} />) as SessionListBackButtonProps['renderSlot']
 
 afterEach(() => {
   cleanup()
@@ -15,7 +17,7 @@ afterEach(() => {
 
 describe('SessionListBackButton', () => {
   it('names its destination with the sidebar dictionary copy', () => {
-    const props = { toggleSidebar: vi.fn(), t } as SessionListBackButtonProps
+    const props = { toggleSidebar: vi.fn(), renderSlot, t } as SessionListBackButtonProps
     render(<SessionListBackButton {...props} />)
     const control = screen.getByRole('button', { name: en['header.backToSessions'] })
     // The visible label names the same destination as the accessible name, so
@@ -25,9 +27,15 @@ describe('SessionListBackButton', () => {
 
   it('returns to the Session list through the injected toggle', () => {
     const toggleSidebar = vi.fn()
-    const props = { toggleSidebar, t } as SessionListBackButtonProps
+    const props = { toggleSidebar, renderSlot, t } as SessionListBackButtonProps
     render(<SessionListBackButton {...props} />)
     fireEvent.click(screen.getByRole('button', { name: en['header.backToSessions'] }))
     expect(toggleSidebar).toHaveBeenCalledOnce()
+  })
+
+  it('renders the header status seat it declares beside the control', () => {
+    const props = { toggleSidebar: vi.fn(), renderSlot, t } as SessionListBackButtonProps
+    render(<SessionListBackButton {...props} />)
+    expect(screen.getByTestId('status-seat').dataset.slot).toBe('sidebar.header.status')
   })
 })

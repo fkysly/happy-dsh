@@ -24,6 +24,7 @@ import type {
   SettingsOnboardingStep, SettingsRootInjected, SettingsSectionRow,
 } from './shell-contract.ts'
 import { SettingsRoot } from './SettingsRoot.tsx'
+import { HeaderConnectionIndicator } from './HeaderConnectionIndicator.tsx'
 import { DesktopUpdateBadge } from './DesktopUpdateIndicator.tsx'
 import type { DesktopUpdateBridge } from '../types.ts'
 import { DesktopUpdateSource } from './desktop-update-source.ts'
@@ -189,6 +190,17 @@ export function apply(ctx: ClientContext): void {
     },
     inject: shellInjected,
   }, SettingsRoot))
+
+  // A phone keeps the Session list as a closed screen, so the footer's status
+  // line is off screen when an outage matters; the status seat beside the
+  // header's Session-list control carries the state there. The stylesheet shows
+  // it only on that frame.
+  ctx.slots.inject('sidebar.header.status', () => ctx.slots.register({
+    name: 'sidebar.header.status',
+    id: 'connection',
+    locale: NS,
+    inject: shellInjected,
+  }, HeaderConnectionIndicator))
 
   ctx.slots.inject('settings.trigger', () =>
     ctx.slots.register({ name: 'settings.trigger', locale: NS }, TriggerContent))
