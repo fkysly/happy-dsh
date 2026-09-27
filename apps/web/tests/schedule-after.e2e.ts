@@ -641,9 +641,11 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await page.evaluate(() => { document.body.removeAttribute('data-ds-dark-theme') })
-    const openSidebar = page.getByRole('button', { name: 'Open sidebar' })
-    if (await openSidebar.isVisible()) {
-      await openSidebar.click()
+    // This frame is narrow enough to keep no rail, so the Session list opens
+    // from the Conversation header's own control instead of a sidebar toggle.
+    const openList = page.getByRole('button', { name: 'Back to sessions' })
+    if (await openList.isVisible()) {
+      await openList.click()
       await page.getByRole('button', { name: 'Collapse sidebar' }).waitFor({ timeout: 10_000 })
     }
     const workspaceRow = page.locator('[role="treeitem"]').first()

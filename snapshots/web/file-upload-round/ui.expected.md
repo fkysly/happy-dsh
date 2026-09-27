@@ -1,4 +1,5 @@
 - banner:
+  - button "Back to sessions": Sessions
   - navigation "Session hierarchy": Read the attached file with
   - text: Standard mode
   - button "More actions"
