@@ -184,6 +184,23 @@ describe.skipIf(MODE === 'record')('web e2e: touch hit areas', () => {
     // settle instead of reading a control mid-slide.
     await expect.poll(async () => (await probe(wide, RAIL_CONTROLS)).map(report => report.drawn), { timeout: 10_000 })
       .toEqual(RAIL_CONTROLS.map(() => [36, 36]))
+    // The controls reach their drawn size before the column finishes sliding,
+    // so also wait until their positions stop moving: a sample taken mid-slide
+    // lands beside a control that has not arrived yet.
+    const positions = () => wide.evaluate(labels => labels.map((label) => {
+      const control = [...document.querySelectorAll('button')]
+        .find(button => button.getAttribute('aria-label') === label && button.getBoundingClientRect().width > 0)
+      const rect = control?.getBoundingClientRect()
+      return rect === undefined ? null : [Math.round(rect.x), Math.round(rect.y)]
+    }), [...RAIL_CONTROLS])
+    let previous = JSON.stringify(await positions())
+    await expect.poll(async () => {
+      await wide.waitForTimeout(150)
+      const current = JSON.stringify(await positions())
+      const settled = current === previous
+      previous = current
+      return settled
+    }, { timeout: 10_000 }).toBe(true)
     const reports = await probe(wide, RAIL_CONTROLS)
     for (const report of reports) {
       // The drawn size is unchanged; only the hit area grows.
