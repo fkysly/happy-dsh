@@ -1,3 +1,40 @@
+/* The connection status line reserves its height in every state: a notice that
+   appears and clears must not move the rows around it. The dot is always
+   present, so the line is the state's anchor and never a surprise. */
+.statusRow {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+/* The closed rail is 36px wide: only the dot fits, centered under the list. */
+.statusRailRow {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
+.statusDot {
+  flex: none;
+}
+
+/* The retry control is a text button: on a touch screen it takes the row's full
+   44-point height, which the reserved line already provides, so the target is a
+   finger's width without the line ever changing height. */
+@media (pointer: coarse) {
+  .statusRow {
+    height: 44px;
+  }
+
+  .statusRow button {
+    min-height: 44px;
+  }
+}
+
 .triggerRow {
   position: relative;
   flex: none;

@@ -14,6 +14,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import clsx from 'clsx'
 import {
   ConnectionIndicator,
+  StateDot,
   IconAgentPresetOutlineMedium, IconArchiveOutlineMedium, IconCloseOutlineRegular, IconDataOutlineMedium,
   IconPersonalizationOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -217,9 +218,31 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   } else if (showRecovery) {
     connectionIndicator = 'recovered'
   }
+  // The dot carries the state that outlives a notice: `ongoing` while retrying,
+  // `warning` while the link is down, `done` once it is up.
+  const connectionDot = connectionState === 'disconnected'
+    ? 'warning'
+    : connectionState === 'connecting' || holdConnecting ? 'ongoing' : 'done'
 
   return (
     <>
+      {/* The status line holds its height in every state, so a connection
+          notice appearing or clearing never moves the rows around it. The dot
+          is always present; only a retry or a confirmation adds text beside
+          it. */}
+      <div className={clsx(css.statusRow, !wide && css.statusRailRow)} data-connection-status>
+        {wide && <StateDot state={connectionDot} className={css.statusDot} />}
+        <ConnectionIndicator
+          state={desktopUpdate.presentation?.phase !== 'installing' ? connectionIndicator : undefined}
+          compact={!wide}
+          disconnectedLabel={t('connection.error')}
+          connectingLabel={t('connection.connecting')}
+          recoveredLabel={t('connection.connected')}
+          reconnectActionLabel={t('connection.reconnect')}
+          restartActionLabel={t('connection.restart')}
+          onReconnect={reconnect}
+        />
+      </div>
       <div ref={triggerRow} className={clsx(css.triggerRow, !wide && css.railRow)}>
         {renderSlot('settings.launcher', { wide, openSettings: () => { setOpen(true) }, openOnboarding: (id) => { setOpen(false); setRequestedOnboarding(id) } }, { fallback: <button
           ref={triggerButton}
@@ -232,16 +255,6 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
         >
           {renderSlot('settings.trigger', { wide })}
         </button> })}
-        <ConnectionIndicator
-          state={desktopUpdate.presentation?.phase !== 'installing' ? connectionIndicator : undefined}
-          compact={!wide}
-          disconnectedLabel={t('connection.error')}
-          connectingLabel={t('connection.connecting')}
-          recoveredLabel={t('connection.connected')}
-          reconnectActionLabel={t('connection.reconnect')}
-          restartActionLabel={t('connection.restart')}
-          onReconnect={reconnect}
-        />
         <DesktopUpdateIndicator wide={wide} hidden={connectionIndicator !== undefined && desktopUpdate.presentation?.phase !== 'installing'}
           t={t} view={desktopUpdate} onOpen={openDesktopUpdate} />
       </div>

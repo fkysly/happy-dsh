@@ -4,21 +4,18 @@
   grid-template-columns: 14px max-content;
   align-items: center;
   column-gap: 4px;
-  height: 28px;
-  padding: 0 8px;
+  height: 20px;
+  padding: 0;
   box-sizing: border-box;
-  border: 1px solid transparent;
-  border-radius: 13px;
+  border: none;
+  border-radius: 6px;
+  background: none;
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
   white-space: nowrap;
-  transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out,
-    border-color 160ms ease-out,
-    opacity 150ms ease-out;
+  transition: color 160ms ease-out, opacity 150ms ease-out;
   animation: indicator-enter 150ms ease-out;
 }
 
@@ -32,27 +29,16 @@
   }
 }
 
+/* Status, not a pill: the line states the connection the way the surrounding
+   chrome states everything else — ink on the page, at the detail tier. Only the
+   retry action changes on interaction. */
 .warning {
-  background: var(--dsw-alias-state-warn-tertiary);
   color: var(--dsw-alias-state-warn-label);
-  border-color: color-mix(in srgb, var(--dsw-alias-state-warn-label) 20%, transparent);
   cursor: pointer;
 }
 
 .warning:hover {
-  background: color-mix(
-    in srgb,
-    var(--dsw-alias-state-warn-tertiary),
-    var(--dsw-alias-state-warn-primary) 6%
-  );
-}
-
-.warning:active {
-  background: color-mix(
-    in srgb,
-    var(--dsw-alias-state-warn-tertiary),
-    var(--dsw-alias-state-warn-primary) 10%
-  );
+  color: var(--dsw-alias-state-warn-primary);
 }
 
 .warning:focus-visible {
@@ -61,9 +47,7 @@
 }
 
 .success {
-  background: var(--dsw-alias-state-success-tertiary);
   color: var(--dsw-alias-state-success-primary);
-  border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 20%, transparent);
 }
 
 .icon {
