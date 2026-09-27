@@ -12,7 +12,6 @@ import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
-import type { BrowserAuth } from './browser-auth.ts'
 import { OperatorPeer } from './operator-peer.ts'
 import type {
   PeerAdmission,
@@ -70,12 +69,10 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * Provide the Host half over the active HTTP server.
    * @param ctx - owning Connection plugin context.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
-   * @param browserAuth - process token and persistent browser-session owner.
    */
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
-    private readonly browserAuth: BrowserAuth,
   ) {
     super(ctx, 'connection')
     this.operator = new OperatorPeer(ctx)
@@ -100,29 +97,28 @@ export class HostConnectionService extends Service implements HostConnectionHand
     }
   }
 
-  /** Apply the configured Host/Origin fence, then browser authentication when a session is required. */
+  /** Apply the configured Host/Origin fence. */
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
-    if (!isTrustedApiRequest(request, this.trustedHosts)) return 403
-    return this.browserAuth.admits(request) ? undefined : 401
+    return isTrustedApiRequest(request, this.trustedHosts) ? undefined : 403
   }
 
-  /** A request that passes the fence and authentication speaks for the operator. */
+  /** A request that passes the fence speaks for the operator. */
   admit(request: ConnectionTrustRequest): PeerAdmission {
     const rejection = this.requestRejection(request)
     return rejection === undefined ? { peer: this.operator } : { rejection }
   }
 
   /**
-   * Authenticate an index request through the process-token exchange or cookie,
-   * or serve it directly when a deployment requires no session.
+   * Serve an index request only when the fence admits it, owning the 403
+   * otherwise. The index carries boot-injected data, so it is reached through
+   * the same Host/Origin fence as `/api`.
    */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
-    return this.browserAuth.authorizeIndex(request, response)
-  }
-
-  /** Add this process's launch token to the clean application URL, or leave it clean when no session is required. */
-  authenticatedUrl(baseUrl: string): string {
-    return this.browserAuth.authenticatedUrl(baseUrl)
+    const rejection = this.requestRejection(request)
+    if (rejection === undefined) return true
+    response.writeHead(rejection)
+    response.end('forbidden')
+    return false
   }
 
   /**
@@ -185,7 +181,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
         const admission = this.admit(req)
         if ('rejection' in admission) {
           res.writeHead(admission.rejection)
-          res.end(admission.rejection === 401 ? 'unauthorized' : 'forbidden')
+          res.end('forbidden')
           return
         }
         await bridge(req, res, fetchHandler)

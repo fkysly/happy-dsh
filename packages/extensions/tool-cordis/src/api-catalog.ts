@@ -730,11 +730,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'createSharedFetchHandler(channel: \'/api\'): ConnectionFetchHandler',
         description: 'Compose exact Fetch routes and the shared-channel RPC interceptor.',
         parameters: [{ name: 'channel', description: 'shared channel mounted by Connection.' }],
-        returns: 'Fetch handler for trusted, authenticated requests.',
+        returns: 'Fetch handler for trusted requests.',
       },
       {
         signature: 'requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection',
-        description: 'Apply Connection\'s Host/Origin checks to another Web route, then browser authentication when the deployment requires a session.',
+        description: 'Apply Connection\'s Host/Origin checks to another Web route.',
         parameters: [{ name: 'request', description: 'request headers from the HTTP or upgrade request.' }],
         returns: 'rejection status, or undefined when the route may accept the request.',
       },
@@ -746,15 +746,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean',
-        description: 'Authenticate one frontend index request, owning a token redirect or 401; a deployment that requires no session serves the index directly.',
+        description: 'Decide whether a frontend index request may be served, owning a 403 when it may not. The index carries boot-injected data, so it gets the same Host/Origin fence as `/api`: a rebound page reads a Host it may not reach.',
         parameters: [{ name: 'request', description: 'root or configured-index HTTP request.' }, { name: 'response', description: 'response owned when the result is false.' }],
         returns: 'true only when the frontend may serve index.html.',
-      },
-      {
-        signature: 'authenticatedUrl(baseUrl: string): string',
-        description: 'Add the fresh process token to an ordinary Web application URL, leaving the URL clean when the deployment requires no session.',
-        parameters: [{ name: 'baseUrl', description: 'clean application URL whose authority and mount are preserved.' }],
-        returns: 'tokenized URL for initial login, or `baseUrl` unchanged; a mount proxy strips its prefix before {@link authorizeIndex}.',
       },
     ],
   },
@@ -4619,7 +4613,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConnectionRequestRejection',
-    declaration: 'export type ConnectionRequestRejection = 401 | 403 | undefined;',
+    declaration: 'export type ConnectionRequestRejection = 403 | undefined;',
   },
   {
     name: 'ConnectionRpcAttachment',
@@ -5619,7 +5613,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PeerAdmission',
-    declaration: 'export type PeerAdmission = {\n    readonly peer: PeerScope;\n} | {\n    readonly rejection: 401 | 403;\n};',
+    declaration: 'export type PeerAdmission = {\n    readonly peer: PeerScope;\n} | {\n    readonly rejection: 403;\n};',
   },
   {
     name: 'PeerId',

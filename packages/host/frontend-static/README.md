@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Serve the built Web shell to browsers from its configured distribution directory. The root and configured index path render the bootstrapped index; existing assets are served directly, while missing or non-file paths return 404, traversal returns 403, and unsupported methods return 405. Index access requires a valid process token or browser cookie unless Connection's `requireBrowserAuth` is false, but static assets remain public. Only one instance can handle unmatched routes at a time; a second activation fails, and unloading the active instance makes unmatched requests return 404.
+Serve the built Web shell to browsers from its configured distribution directory. The root and configured index path render the bootstrapped index; existing assets are served directly, while missing or non-file paths return 404, traversal returns 403, and unsupported methods return 405. Index requests pass the Host/Origin fence and receive 403 when the Host is not an authority this deployment serves; static assets remain public. Only one instance can handle unmatched routes at a time; a second activation fails, and unloading the active instance makes unmatched requests return 404.
 
 ## Table of Contents
 
@@ -43,7 +43,7 @@ Requests are served from the dist root (the directory containing `distIndex`). T
 
 The served HTML carries one document base, `<base href="./">`, ahead of every injected resource row, so it freezes the entry directory the page was loaded from: the shell's own app-directory-relative references and the Host's plugin-resource rows both resolve under the mount that served the page. The same index therefore serves the origin root and whatever mount a prefix-stripping proxy owns; this plugin renders it only for the dist root and the configured index path.
 
-Root and configured-index responses call `ctx.connection.authorizeIndex` before reading HTML. Under the default browser authentication, a valid process token receives a 303 redirect plus the persistent browser cookie, and an existing valid cookie serves the index; every other index request receives the Connection-owned 401 response. A deployment that sets `requireBrowserAuth: false` serves the index directly to any request the trust fence admitted. Non-index files remain public static assets. Connection owns the token, cookie, expiry, and signing-record semantics.
+Root and configured-index responses call `ctx.connection.authorizeIndex` before reading HTML. The index carries boot-injected data, so it passes the same Host/Origin fence as `/api`: a request whose Host is an authority this deployment serves receives 200, and one whose Host is not receives 403. An undeclared authority is never served the index. Non-index files remain public static assets. Connection owns the fence semantics.
 
 ### Observable failures
 

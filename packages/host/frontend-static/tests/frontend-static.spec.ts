@@ -2,10 +2,12 @@
  * REAL-composition coverage: a test-only cordis.yml booted through the
  * vendored Loader mounts the webserver and frontend-static rows, and every
  * assertion observes the served HTTP surface — asset serving, explicit index
- * entry points with index taps, 404 misses, traversal rejection, 405 on non-
- * GET/HEAD, and seat release on fiber disposal (HMR safety).
+ * entry points with index taps, the index Host fence, 404 misses, traversal
+ * rejection, 405 on non-GET/HEAD, and seat release on fiber disposal (HMR
+ * safety).
  */
 
+import { request as httpRequest } from 'node:http'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -29,7 +31,7 @@ afterEach(async () => {
   root = undefined
 })
 
-/** Write a dist fixture and the authenticated Web rows, then boot them through the real Loader. */
+/** Write a dist fixture and the Web rows, then boot them through the real Loader. */
 async function loadComposition(): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-frontend-static-'))
   const dist = join(root, 'dist')
@@ -84,6 +86,21 @@ async function loadComposition(): Promise<Context> {
   return context
 }
 
+/**
+ * GET one path over a real socket with a spoofed Host header, the way a
+ * rebound page sends it; returns the status code.
+ */
+function requestWithHost(port: number, path: string, host: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({ host: '127.0.0.1', port, path, method: 'GET', headers: { host } }, (response) => {
+      response.resume()
+      response.on('end', () => { resolve(response.statusCode ?? 0) })
+    })
+    request.on('error', reject)
+    request.end()
+  })
+}
+
 /** GET (by default) one path against the running server; returns status, content-type, and the body. */
 async function request(port: number, path: string, init?: RequestInit): Promise<{ status: number; type: string | null; body: string }> {
   const response = await fetch(`http://127.0.0.1:${String(port)}${path}`, init)
@@ -95,46 +112,6 @@ async function request(port: number, path: string, init?: RequestInit): Promise<
 }
 
 describe('real Loader composition', () => {
-  it('signs a second browser in with a one-time code from a signed-in one', { timeout: 60_000 }, async () => {
-    const loaded = await loadComposition()
-    const port = loaded.webServer.port
-    const origin = `http://127.0.0.1:${String(port)}`
-    const exchange = await fetch(loaded.connection.authenticatedUrl(origin), { redirect: 'manual' })
-    const signedIn = exchange.headers.get('set-cookie')?.split(';', 1)[0]
-    if (signedIn === undefined) throw new Error('launch token did not set a cookie')
-    const navigation = { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' }
-
-    // Only a signed-in browser can create a code.
-    const refused = await fetch(`${origin}${Connection.SIGN_IN_CODE_PATH}`, { method: 'POST', headers: { origin } })
-    expect(refused.status).toBe(401)
-    const created = await fetch(`${origin}${Connection.SIGN_IN_CODE_PATH}`, {
-      method: 'POST', headers: { origin, cookie: signedIn },
-    })
-    expect(created.status).toBe(200)
-    expect(created.headers.get('cache-control')).toBe('no-store')
-    const { code } = await created.json() as Connection.SignInCode
-
-    // The second browser has no cookie: its navigation gets the sign-in page.
-    const page = await request(port, '/', { headers: navigation })
-    expect(page).toMatchObject({ status: 401, type: 'text/html; charset=utf-8' })
-    expect(page.body).toContain('<form method="get" action="./">')
-
-    // Submitting the form redeems the code for a session cookie.
-    const redeemed = await fetch(`${origin}/?code=${encodeURIComponent(code)}`, { redirect: 'manual', headers: navigation })
-    expect(redeemed.status).toBe(303)
-    expect(redeemed.headers.get('location')).toBe('./')
-    const second = redeemed.headers.get('set-cookie')?.split(';', 1)[0]
-    if (second === undefined) throw new Error('sign-in code did not set a cookie')
-    const index = await request(port, '/', { headers: { ...navigation, cookie: second } })
-    expect(index.status).toBe(200)
-    expect(index.body).toContain('shell')
-
-    // The code works once.
-    const reused = await request(port, `/?code=${encodeURIComponent(code)}`, { headers: navigation })
-    expect(reused.status).toBe(401)
-    expect(reused.body).toContain('role="alert"')
-  })
-
   it('serves explicit index entries and files while preserving HTTP error semantics', { timeout: 60_000 }, async () => {
     const loaded = await loadComposition()
     const unloaded = [...loaded.loader.entries()]
@@ -143,24 +120,11 @@ describe('real Loader composition', () => {
     expect(unloaded).toEqual([])
     const server = loaded.webServer
     const port = server.port
-    const launchUrl = loaded.connection.authenticatedUrl(`http://127.0.0.1:${String(port)}`)
-    const exchange = await fetch(launchUrl, { redirect: 'manual' })
-    expect(exchange.status).toBe(303)
-    expect(exchange.headers.get('location')).toBe('./')
-    const setCookie = exchange.headers.get('set-cookie')
-    if (setCookie === null) throw new Error('authenticated frontend did not set a cookie')
-    const cookie = setCookie.split(';', 1)[0]!
-    const authenticated = (init?: RequestInit): RequestInit => {
-      const headers = new Headers(init?.headers)
-      headers.set('cookie', cookie)
-      return { ...init, headers }
-    }
-
-    expect(await request(port, '/')).toMatchObject({
-      status: 401,
-      type: 'text/plain; charset=utf-8',
-      body: 'dsh web authentication required; reopen the URL printed by dsh web.\n',
-    })
+    // The index carries boot-injected data, so it passes the same Host/Origin
+    // fence as /api: a fence-passing request needs no session, and a Host this
+    // deployment does not serve is refused before the index is read.
+    expect(await request(port, '/')).toMatchObject({ status: 200, type: 'text/html; charset=utf-8' })
+    expect(await requestWithHost(port, '/', 'other.example')).toBe(403)
 
     // Real assets with their MIME types; a live rebuild is served on the next read.
     expect(await request(port, '/app.js')).toMatchObject({ status: 200, type: 'text/javascript; charset=utf-8', body: 'export {}' })
@@ -190,7 +154,7 @@ describe('real Loader composition', () => {
       rows.push({ kind: 'script-preload', src: 'plugins/boot.js' })
     })
     for (const path of ['/', '/index.html', '/?view=test']) {
-      const got = await request(port, path, authenticated())
+      const got = await request(port, path)
       expect(got.status).toBe(200)
       expect(got.type).toBe('text/html; charset=utf-8')
       expect(got.body).toContain('__T__')
@@ -204,20 +168,20 @@ describe('real Loader composition', () => {
       expect(base).toBeLessThan(got.body.indexOf('<script>window.__T__=1</script>'))
     }
     offRows()
-    expect(await request(port, '/', authenticated({ method: 'HEAD' }))).toEqual({
+    expect(await request(port, '/', { method: 'HEAD' })).toEqual({
       status: 200,
       type: 'text/html; charset=utf-8',
       body: '',
     })
     untap()
-    expect((await request(port, '/', authenticated())).body).not.toContain('__T__')
+    expect((await request(port, '/')).body).not.toContain('__T__')
 
     // A missing configured index follows the same empty-404 contract for both
     // of its public entry paths and for both supported methods.
     await rm(join(root!, 'dist', 'index.html'))
     for (const path of ['/', '/index.html']) {
-      const get = await request(port, path, authenticated())
-      const head = await request(port, path, authenticated({ method: 'HEAD' }))
+      const get = await request(port, path)
+      const head = await request(port, path, { method: 'HEAD' })
       expect(get).toEqual({ status: 404, type: null, body: '' })
       expect(head).toEqual(get)
     }
@@ -239,7 +203,7 @@ describe('real Loader composition', () => {
       expect(get).toEqual({ status: 404, type: null, body: '' })
       expect(head).toEqual(get)
     }
-    expect(await request(port, '/api/no/such/route', authenticated())).toEqual({
+    expect(await request(port, '/api/no/such/route')).toEqual({
       status: 404,
       type: 'text/plain;charset=UTF-8',
       body: 'not found',

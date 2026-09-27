@@ -211,10 +211,9 @@ else
   do_restart
   note "restarted"
 
-  # Deliberately NOT printing the new URL: it carries the launch token, and
-  # this script's output regularly ends up in an agent transcript, a terminal
-  # scrollback, or a log. Point at it instead.
+  # Point at the URL rather than printing it: this script's output regularly
+  # ends up in an agent transcript, a terminal scrollback, or a log.
   LOG="${DSH_HOME:-$HOME/.dsh}/serve.stdout"
   note "read the new URL with:"
-  note "    grep -Eo 'https?://[^ ]*token=[^ ]*' $LOG | tail -1"
+  note "    grep -Eo '^dsh web: https?://[^ ]*' $LOG | tail -1"
 fi

@@ -134,10 +134,10 @@ const SERVICE_ROLES: ServiceRole[] = [
   {
     key: 'connection',
     pkg: 'client-connection',
-    title: 'Authenticated browser transport',
+    title: 'Fenced browser transport',
     mode: 'core',
     consumers: ['api-gateway', 'host-frontend-static'],
-    note: 'Owns browser authentication and shared HTTP request dispatch; API adapters register endpoints and streams.',
+    note: 'Owns the Host/Origin trust fence and shared HTTP request dispatch; API adapters register endpoints and streams.',
   },
   {
     key: 'mcpResources',

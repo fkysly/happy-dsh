@@ -423,10 +423,8 @@ Source: [`packages/shell/bash-sandbox/src/index.ts:36`](../packages/shell/bash-s
 
 ## `@deepseek-ai/dsh-client-connection`
 
-Requires: `credentials`
-
 ```ts config-catalog
-/** Browser authentication, request limits, and connection recovery configuration. */
+/** Request limits and connection recovery configuration. */
 export interface ConnectionConfig {
   /** Browser recovery timing, injected into each served page. */
   recovery?: ConnectionRecoveryConfig
@@ -439,18 +437,6 @@ export interface ConnectionConfig {
    * bind. An entry that is not a bare, canonical authority fails plugin load.
    */
   trustedHosts?: string[]
-  /** Absolute browser-session lifetime in days. Default: 30. */
-  cookieMaxAgeDays?: number
-  /**
-   * Whether the browser must exchange the process launch token for a session
-   * cookie before the UI or any RPC runs. Default: true.
-   *
-   * Set false only on a network whose reachable clients are all trusted: the Web
-   * UI drives tool-capable Sessions with this process's own authority, so every
-   * client that reaches the port can run commands as this user. The Host/Origin
-   * fence still applies, so the configured authorities remain the reachable set.
-   */
-  requireBrowserAuth?: boolean
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
   /**
@@ -491,7 +477,7 @@ export interface ConnectionRecoveryConfig {
 }
 ```
 
-Source: [`packages/client/connection/src/index.ts:93`](../packages/client/connection/src/index.ts)
+Source: [`packages/client/connection/src/index.ts:87`](../packages/client/connection/src/index.ts)
 
 <a id="deepseek-aidsh-client-hmr"></a>
 
@@ -1359,7 +1345,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/open-in-app/src/index.ts:51`](../packages/host/open-in-app/src/index.ts)
+Source: [`packages/host/open-in-app/src/index.ts:50`](../packages/host/open-in-app/src/index.ts)
 
 <a id="deepseek-aidsh-host-product-telemetry-otel"></a>
 

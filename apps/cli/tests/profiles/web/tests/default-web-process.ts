@@ -164,16 +164,15 @@ export async function withDefaultWeb(test: TestContext, inspect: (app: DefaultWe
  * Read an owned loopback response without inheriting Node's process-start proxy dispatcher.
  * @param url - URL of the test-owned Web process.
  * @param signal - owning test cancellation signal.
- * @param headers - optional authentication cookie.
  * @returns complete response after its stream ends.
  */
-export function webGet(url: string | URL, signal: AbortSignal, headers: Record<string, string> = {}): Promise<{
+export function webGet(url: string | URL, signal: AbortSignal): Promise<{
   status: number | undefined
   headers: IncomingHttpHeaders
   text: string
 }> {
   return new Promise((resolve, reject) => {
-    const request = get(url, { headers, agent: false, signal }, (response) => {
+    const request = get(url, { agent: false, signal }, (response) => {
       response.setEncoding('utf8')
       let text = ''
       response.on('data', (chunk: string) => { text += chunk })

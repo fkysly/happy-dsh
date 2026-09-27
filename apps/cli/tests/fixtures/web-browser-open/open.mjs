@@ -22,16 +22,12 @@ export default async function open(url) {
   if (process.env.BROWSER_OPEN_TEST_FAILURE !== undefined) {
     throw new Error(process.env.BROWSER_OPEN_TEST_FAILURE)
   }
-  const exchange = await fetch(url, { redirect: 'manual' })
-  const setCookie = exchange.headers.get('set-cookie')
-  const location = exchange.headers.get('location')
-  if (exchange.status !== 303 || setCookie === null || location === null) {
-    throw new Error(`browser authentication exchange returned HTTP ${exchange.status}`)
-  }
-  const response = await fetch(new URL(location, url), {
-    headers: { cookie: setCookie.split(';', 1)[0] },
-  })
+  const response = await fetch(url)
   const html = await response.text()
+  const contentType = response.headers.get('content-type')
+  if (response.status !== 200 || contentType === null || !contentType.includes('text/html')) {
+    throw new Error(`dsh web page returned HTTP ${response.status} with content-type ${String(contentType)}`)
+  }
   console.log(`dsh browser-open: ${JSON.stringify({
     url,
     status: response.status,

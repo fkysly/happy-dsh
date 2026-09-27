@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-关掉终端之后让 happy-dsh 继续跑、重启之后还能自己回来 —— 同时不让它启动时打印的那张凭证泄漏出去。
+关掉终端之后让 happy-dsh 继续跑、重启之后还能自己回来 —— 并且把它的输出收在一个只有你能读的文件里。
 
 这个目录讲的是*进程生命周期*。想从别的设备访问 Web UI（TLS、反向代理、局域网、Tailscale），见 [`../remote-access/`](../remote-access/)。
 
@@ -20,16 +20,17 @@ cd deploy/serve
              --patch "$PWD/../remote-access/overlays/remote-browser.yml"
 ```
 
-脚本会装好服务、启动它、等它起来，然后把那个一次性 URL 打出来：
+脚本会装好服务、启动它、等它起来，然后把那个 URL 打出来：
 
 ```
 ==> Waiting for the Web UI to come up
 
-  Ready. Open this once to mint a session cookie:
+  Ready. Open this:
 
-      http://127.0.0.1:3080/?token=…
+      http://127.0.0.1:3080/
 
-  Treat this URL as a password — it stays valid until the process restarts.
+  The Host/Origin fence decides which authorities reach it; nothing establishes
+  identity, so anything that can reach a declared authority is served.
 ```
 
 它还会以 0600 权限创建 `~/.dsh/serve.stdout` 和 `~/.dsh/serve.stderr`，并在结束前确认这个权限真的生效了。
@@ -45,15 +46,9 @@ cd deploy/serve
 | `dshmarket@1.65.4` | 社区插件市场 —— 设置 → **插件市场**：浏览、搜索、一键安装、主题、更新 |
 | `dsh-find-plugin@0.4.0` | 同一个目录，但入口在会话里，于是 agent 可以替你搜、替你装 |
 
-版本是**钉死的，不是范围**：`install.sh` 写的是一个确切的组合，所以同一个 release 在两台机器上装的是同一份代码。
-`pnpm run happy-dsh:preinstall bump` 把它们推到 registry 上的最新版（install.sh 和两个 README 一起改），
-`deploy/release/preinstall-smoke.sh` 则把这个组合装进一个全新的 profile、换个端口真的把服务起起来。
-发布流程既拒绝过期的 pin，也拒绝在 smoke 没过的情况下发布 —— 一个加载不了的插件会把整个启动带下去。
+版本是**钉死的，不是范围**：`install.sh` 写的是一个确切的组合，所以同一个 release 在两台机器上装的是同一份代码。`pnpm run happy-dsh:preinstall bump` 把它们推到 registry 上的最新版（install.sh 和两个 README 一起改），`deploy/release/preinstall-smoke.sh` 则把这个组合装进一个全新的 profile、换个端口真的把服务起起来。发布流程既拒绝过期的 pin，也拒绝在 smoke 没过的情况下发布 —— 一个加载不了的插件会把整个启动带下去。
 
-**两个都是第三方包** —— 接受这个默认值之前值得知道：它们来自 npm
-（`github.com/dsh-market/dsh-market`、`github.com/awesome-dsh-plugin/dsh-find-plugin`，都是 MIT），
-不来自这个仓库。它们不是构建的依赖，按自己的节奏发版，而且那个市场还能替你从
-[受审核的目录](https://awesome-dsh-plugin.com)继续装别的插件。不想要这些的部署：
+**两个都是第三方包** —— 接受这个默认值之前值得知道：它们来自 npm（`github.com/dsh-market/dsh-market`、`github.com/awesome-dsh-plugin/dsh-find-plugin`，都是 MIT），不来自这个仓库。它们不是构建的依赖，按自己的节奏发版，而且那个市场还能替你从[受审核的目录](https://awesome-dsh-plugin.com)继续装别的插件。不想要这些的部署：
 
 ```sh
 ./install.sh --trusted-host dsh.dev --no-default-plugins
@@ -62,12 +57,9 @@ cd deploy/serve
 ./install.sh --trusted-host dsh.dev --plugin github:you/your-plugin
 ```
 
-顺序就是「不需要第二次重启」的原因：`dsh plugin` 会把还不存在的 profile 按它自带的模板初始化，
-于是一个全新的 `web` profile 在一次启动里就同时有了 `dsh-base`、`dsh-web-app` 和这两个插件。
-profile 里其它东西一律不动 —— `add` 只是往它的 `package.json` 里追加。
+顺序就是「不需要第二次重启」的原因：`dsh plugin` 会把还不存在的 profile 按它自带的模板初始化，于是一个全新的 `web` profile 在一次启动里就同时有了 `dsh-base`、`dsh-web-app` 和这两个插件。profile 里其它东西一律不动 —— `add` 只是往它的 `package.json` 里追加。
 
-它们是普通的 profile 依赖，所以 `./install.sh --uninstall` 会把它们原样留下，连同 `$DSH_HOME`
-的其余部分。想看它们怎么参与组合 —— 它们排在 bundle 之后的最后两层：
+它们是普通的 profile 依赖，所以 `./install.sh --uninstall` 会把它们原样留下，连同 `$DSH_HOME`的其余部分。想看它们怎么参与组合 —— 它们排在 bundle 之后的最后两层：
 
 ```sh
 dsh --profile web --dump-config | tail -6
@@ -120,17 +112,17 @@ dsh web --patch remote-browser.yml --no-open --port 3080 --trusted-host dsh.dev
 
 ---
 
-## 这套设计围绕的那张凭证
+## 日志里会留下什么
 
 启动时 DSH 会打印：
 
 ```
-dsh web: http://127.0.0.1:3080/?token=<opaque>
+dsh web: http://127.0.0.1:3080/
 ```
 
-那个 token 能为**任意受信 authority** 铸一个会话 cookie。它不是一次性的，不会过期，也没有按 token 撤销的机制 —— 它在进程退出前一直有效。读到它的人就能驱动你的 agent。
+机器上存在局域网地址时，后面还会接上 ` (LAN: http://<ip>:<port>)`。两行都不是凭证：决定哪些 authority 能到达这个服务的是 Host/Origin 栅栏，而它不建立身份。这一行一出现，`install.sh` 就会把这个 URL、以及它要通过的那道栅栏一并报出来。
 
-一个关掉浏览器认证的部署 —— 加上 `--patch …/remote-access/overlays/no-browser-auth.yml`，也就是用栅栏本已决定的可达集合换掉会话要求 —— 打印的这一行**不带** token，`install.sh` 也随之报告一个普通的 URL，而不是登录链接。对其他每一个部署，token 仍然是进门方式，这也是日志文件仍以 `0600` 创建的原因。
+日志文件仍然以 `0600` 创建，但理由不再是有秘密藏在里面，而是按常规把服务的输出收起来 —— 其中包括 agent 每一轮打印的任何东西。
 
 服务 stdout 的默认归宿是 journal，那里 `systemd-journal` / `adm` 组里的人都能读。**设计这套东西的时候调研了七个服务 unit —— gitea、syncthing ×2、code-server ×2、ollama、OpenClaw —— 没有一份设了 `StandardOutput`。** 所以这是整个类别共同的缺口，不是哪个项目独有的错误。
 
@@ -146,7 +138,7 @@ UMask=0077                                      # systemd: files born 0600
 <key>Umask</key><integer>63</integer>           <!-- launchd: 63 decimal = 0o077 -->
 ```
 
-**不设 umask 的话，在干净的机器上第一次启动会把那两个文件创建成 `0644`** —— 机器上任何账号都能读，启动 token 跟着一起。手工预创建它们一直有效，直到有人删了日志再重启 —— 而那正是你最不容易注意到的时刻。
+**不设 umask 的话，在干净的机器上第一次启动会把那两个文件创建成 `0644`** —— 机器上任何账号都能读，服务的输出跟着一起。手工预创建它们一直有效，直到有人删了日志再重启 —— 而那正是你最不容易注意到的时刻。
 
 `install.sh` 既设 umask，也按 0600 预创建那两个文件。故意两个都做：umask 是让这件事成真的那个，预创建是让所在目录先变成 0700、属主先摆正，赶在 supervisor 碰它们之前。
 
@@ -155,14 +147,12 @@ UMask=0077                                      # systemd: files born 0600
 ### 之后再想拿到那个 URL
 
 ```sh
-grep -Eo 'https?://[^ ]*token=[^ ]*' ~/.dsh/serve.stdout | tail -1
+grep -Eo '^dsh web: https?://[^ ]*' ~/.dsh/serve.stdout | tail -1
 ```
 
-**你需要它的频率会比你想象的更低。** cookie 的*签名密钥*持久化在 `$DSH_HOME/.credentials.yaml` 里，所以会话 cookie 能活过服务重启 —— 重启不会把你登出。只有在你加一台设备、或者删掉签名密钥之后，才需要一个新的 token。
+**你需要它的频率会比你想象的更低。** 重启不是登出 —— 这里没有东西可登出 —— 所以只有在你加一台设备、或者忘了记下端口的时候，这个 URL 才用得着。重启之后 `restart.sh` 打印的也是这条命令，而不是 URL 本身。
 
 这个文件每次重启只多一行 URL，所以一直很小；任何时候都可以用 `: > ~/.dsh/serve.stdout` 截断它。
-
-因为读文件是个糟糕的接口，计划里有个 `dsh web token --show` 命令 —— 照 `openclaw gateway auth-token --show` 做的，后者刻意**拒绝被重定向或走管道**，好让凭证不会悄悄落进命令日志。还没实现，需要动核心。
 
 ---
 
@@ -191,7 +181,7 @@ launchctl bootstrap gui/$UID ~/Library/LaunchAgents/ai.happy-dsh.web.plist   # s
 systemctl --user status  happy-dsh-web
 systemctl --user restart happy-dsh-web
 systemctl --user stop    happy-dsh-web
-journalctl --user -u happy-dsh-web -f          # unit messages, not the token
+journalctl --user -u happy-dsh-web -f          # unit messages; stdout goes to the log file
 ```
 
 从 Web UI 里改的设置**不需要**重启 —— `hmr` 会自己重载 profile 配置。需要重启的插件会主动要求，然后服务把它带回来。
@@ -230,7 +220,7 @@ launchctl bootout gui/$UID/ai.happy-dsh.web          # macOS, same caveat
 ./install.sh --uninstall
 ```
 
-停止服务并移除 unit。它不碰 `$DSH_HOME` —— 那个目录里放着你的凭证、会话，和 cookie 的签名密钥。想要干净重来的话，自己删掉：
+停止服务并移除 unit。它不碰 `$DSH_HOME` —— 那个目录里放着你的凭证和会话。想要干净重来的话，自己删掉：
 
 ```sh
 rm -rf ~/.dsh

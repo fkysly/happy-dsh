@@ -8,6 +8,8 @@ Status: implemented
 
 [浏览器启动令牌鉴权](../architecture/2026-08-24-browser-token-authentication.zh.md) 只允许通过 `dsh web` 打印的 `?token=` URL 登录浏览器。添加到 iPhone 主屏幕的 Web App 与 Safari 分开保存 cookie，因此在 Safari 中登录并不会让这个 App 登录；它没有地址栏，无法打开启动 URL；从其他 App 打开的链接会进入默认浏览器，而不是这个 Web App。未通过鉴权的请求只会收到一段纯文本 401，要求用户重新打开那个 URL。于是，只能用手机访问的部署根本无法使用它的主屏幕 App。
 
+本决策已由[移除浏览器鉴权](../architecture/2026-09-27-remove-browser-authentication.zh.md)取代：该记录把登录码连同它们所签发的浏览器会话一并删除。
+
 ## 决定
 
 已登录的浏览器生成一次性登录码，未登录的浏览器在取代 401 的登录页中输入它。

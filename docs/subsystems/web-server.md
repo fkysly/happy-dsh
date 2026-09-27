@@ -24,7 +24,7 @@ interface WebRoute {
 }
 ```
 
-Match order is fixed: exact table first, then longest matching prefix, then the registered fallback. Registration order carries no request-facing semantics — named routes are composed to be disjoint, and the fallback seat answers anything no named route claims; one owner only, a second registration throws. The shipped Web composition claims the seat with [`dsh-host-frontend-static`](../../packages/host/frontend-static/src/index.ts), the SPA dist server with locked semantics: Connection authenticates the dist root and configured index before their HTML is read; non-index assets remain public; non-GET/HEAD is 405, traversal outside the dist root is 403, existing files are served directly, absent or non-file targets are empty 404 responses, and unknown extensions ship as octet-stream.
+Match order is fixed: exact table first, then longest matching prefix, then the registered fallback. Registration order carries no request-facing semantics — named routes are composed to be disjoint, and the fallback seat answers anything no named route claims; one owner only, a second registration throws. The shipped Web composition claims the seat with [`dsh-host-frontend-static`](../../packages/host/frontend-static/src/index.ts), the SPA dist server with locked semantics: Connection fences the dist root and configured index before their HTML is read; non-index assets remain public; non-GET/HEAD is 405, traversal outside the dist root is 403, existing files are served directly, absent or non-file targets are empty 404 responses, and unknown extensions ship as octet-stream.
 
 ## Config
 
@@ -44,7 +44,7 @@ interface Config {
 }
 ```
 
-`host` accepts only `127.0.0.1` (default posture) and `0.0.0.0` (deliberate network exposure). The carrier itself owns no TLS, authentication, or Origin policy, so a non-loopback bind exposes the server unless the composition supplies those controls. `compression` defaults to `none`; the shipped Web bundle selects gzip level 1 with a 1024-byte threshold. The shipped `dsh web` command selects loopback and rejects `--host 0.0.0.0`; its Connection plugin supplies Host/Origin checks plus browser-session authentication for every Host API route and stream. Other compositions own their bind and route-authentication policy. The dist location is an assembly fact of the frontend plugin that claims the seat.
+`host` accepts only `127.0.0.1` (default posture) and `0.0.0.0` (deliberate network exposure). The carrier itself owns no TLS, authentication, or Origin policy, so a non-loopback bind exposes the server unless the composition supplies those controls. `compression` defaults to `none`; the shipped Web bundle selects gzip level 1 with a 1024-byte threshold. The shipped `dsh web` command selects loopback and rejects `--host 0.0.0.0`; its Connection plugin supplies the Host/Origin fence for every Host API route and stream. Other compositions own their bind and route policy. The dist location is an assembly fact of the frontend plugin that claims the seat.
 
 ## The service
 
@@ -70,13 +70,12 @@ Host `ctx.connection` members consumed by transport-independent adapters.
 /**
  * Compose exact Fetch routes and the shared-channel RPC interceptor.
  * @param channel - shared channel mounted by Connection.
- * @returns Fetch handler for trusted, authenticated requests.
+ * @returns Fetch handler for trusted requests.
  */
 createSharedFetchHandler(channel: '/api'): ConnectionFetchHandler
 
 /**
- * Apply Connection's Host/Origin checks to another Web route, then browser
- * authentication when the deployment requires a session.
+ * Apply Connection's Host/Origin checks to another Web route.
  * @param request - request headers from the HTTP or upgrade request.
  * @returns rejection status, or undefined when the route may accept the request.
  */
@@ -91,21 +90,14 @@ requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection
 admit(request: ConnectionTrustRequest): PeerAdmission
 
 /**
- * Authenticate one frontend index request, owning a token redirect or 401; a
- * deployment that requires no session serves the index directly.
+ * Decide whether a frontend index request may be served, owning a 403 when
+ * it may not. The index carries boot-injected data, so it gets the same
+ * Host/Origin fence as `/api`: a rebound page reads a Host it may not reach.
  * @param request - root or configured-index HTTP request.
  * @param response - response owned when the result is false.
  * @returns true only when the frontend may serve index.html.
  */
 authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean
-
-/**
- * Add the fresh process token to an ordinary Web application URL, leaving the
- * URL clean when the deployment requires no session.
- * @param baseUrl - clean application URL whose authority and mount are preserved.
- * @returns tokenized URL for initial login, or `baseUrl` unchanged; a mount proxy strips its prefix before {@link authorizeIndex}.
- */
-authenticatedUrl(baseUrl: string): string
 ```
 
 Source: [`packages/client/connection/src/rpc.ts`](../../packages/client/connection/src/rpc.ts)

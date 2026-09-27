@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-26-one-time-sign-in-codes.md
-2026-09-26-one-time-sign-in-codes.md: 6401815822a65017c12a07abb2ea933587c16f1a
-2026-09-26-one-time-sign-in-codes.zh.md: ad3e39f40f4526a3f2b50a47c8eed3ff3539726c
+2026-09-26-one-time-sign-in-codes.md: a9396f3951771d3874d170591bb055677074bab4
+2026-09-26-one-time-sign-in-codes.zh.md: 363e577324a9ab96f75530d4ee253940ae8273ae

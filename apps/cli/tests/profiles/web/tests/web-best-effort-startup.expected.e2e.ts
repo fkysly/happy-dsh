@@ -160,10 +160,7 @@ describe.skipIf(!builtArtifactsExist)('dsh Web profile best-effort startup', () 
     let events = ''
     try {
       const startup = await waitForStartup(child.stdout, child.stderr, child)
-      const auth = await fetch(startup.url, { redirect: 'manual' })
-      const cookie = auth.headers.get('set-cookie')?.split(';', 1)[0]
-      if (cookie === undefined) throw new Error('Web authentication response did not set a cookie')
-      const page = await fetch(new URL('/', startup.url), { headers: { cookie } })
+      const page = await fetch(new URL('/', startup.url))
       const html = await page.text()
       expect(html).toContain('<div id="root"></div>')
       expect(html).toContain('__DSH_BOOT__')

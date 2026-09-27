@@ -440,7 +440,7 @@ ctx.remote.goals.create(sessionId, request, signal?)
 
 Remote 不在 wire 上定义第二层 `{ ok, value/error }` response。成功值与失败都直接使用既有 RPC response 的 `result`，失败分支携带共享的 `{ code, message, details }` 数据。owner、resolver 与 Gateway 抛的都是同一个类 `RemoteError`，其码来自合并后的 `RemoteErrorDetailsMap`：Host 把结构识别出的 `RemoteError` 原样编码上 wire——包括 Gateway 自己的 `gateway/*` 装配码，以及 resolver 的 `session/not-found`、`session/agent-busy`——只把未归类的 throw 折成 `gateway/internal`，并把诊断串留在 message 里。Client face 为 `RemoteResult` 的错误分支重建实例，因此 `throw result.error` 的 throw 语义成立。[失败词汇 Agent Note](2026-08-28-ctx-remote-failure-vocabulary.zh.md) 持有码表、落点规则，以及为什么判别读 `code` 而不用 `instanceof`。
 
-Gateway 不处理逐方法权限、调用者身份、幂等或长连接状态。它只把 Connection 的协作式取消传播给显式支持取消的业务方法。共享 channel 上的每个请求——无论是 Typert endpoint 还是精确 Fetch route——都先过 Connection 的浏览器认证与 trusted-host 策略再分发；Gateway 不叠加第二套策略。Connection/WebSocket 迁移后续独立完成。
+Gateway 不处理逐方法权限、调用者身份、幂等或长连接状态。它只把 Connection 的协作式取消传播给显式支持取消的业务方法。共享 channel 上的每个请求——无论是 Typert endpoint 还是精确 Fetch route——都先过 Connection 的 Host/Origin 栅栏再分发；Gateway 不叠加第二套策略。Connection/WebSocket 迁移后续独立完成。
 
 ## Connection 与协议边界
 

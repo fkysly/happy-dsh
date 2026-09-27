@@ -6,7 +6,6 @@ import SessionStore from '@deepseek-ai/dsh-session'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import TypertGateway from '@deepseek-ai/dsh-api-gateway'
 import { HostConnectionService } from '@deepseek-ai/dsh-client-connection/src/rpc-host.ts'
-import type { BrowserAuth } from '@deepseek-ai/dsh-client-connection/src/browser-auth.ts'
 import { createWebConnectionRpc } from '@deepseek-ai/dsh-client-connection/src/client/rpc.ts'
 import WorkspaceFiles, { type WorkspaceByteReadOptions } from '../src/index.ts'
 import { openWorkspace, type Harness } from './harness.ts'
@@ -20,7 +19,7 @@ beforeEach(async () => {
   await ctx.plugin(SessionStore)
   await ctx.plugin(TypertRegistry)
   await ctx.plugin(TypertGateway)
-  await ctx.plugin((scope) => { new HostConnectionService(scope, [], {} as BrowserAuth) })
+  await ctx.plugin((scope) => { new HostConnectionService(scope, []) })
   await ctx.plugin(WorkspaceFiles, { maxBytes: 8, maxFileBytes: 4, maxLines: 100, maxEntries: 100 })
   ctx.sessions.create(harness.scope.sessionId, { meta: { cwd: harness.workspace, origin: 'subagent' } })
   const handler = (ctx.get('connection') as HostConnectionService).createSharedFetchHandler('/api')

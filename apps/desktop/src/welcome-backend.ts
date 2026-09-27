@@ -30,20 +30,20 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Authenticate the native HTTP client through the Web application's launch URL.
- * @param authenticatedUrl - URL supplied by the running Desktop Host.
- * @param send - Electron session fetch, retaining the Web authentication cookie.
+ * Reach the Web application through the URL its Desktop Host reports.
+ * @param hostUrl - URL supplied by the running Desktop Host.
+ * @param send - Electron session fetch, carrying the account session cookie.
  * @returns metadata reads and write-only credential operations over standard RPC.
  */
 export async function connectDesktopWelcome(
-  authenticatedUrl: string,
+  hostUrl: string,
   send: (input: string, init?: RequestInit) => Promise<Response>,
   cookies: () => Promise<string> = () => Promise.resolve(''),
 ): Promise<DesktopWelcomeBackend> {
-  const origin = new URL(authenticatedUrl).origin
-  const authenticated = await send(authenticatedUrl, { credentials: 'include' })
-  await authenticated.body?.cancel()
-  if (!authenticated.ok) throw new Error('desktop welcome: Web authentication failed')
+  const origin = new URL(hostUrl).origin
+  const reached = await send(hostUrl, { credentials: 'include' })
+  await reached.body?.cancel()
+  if (!reached.ok) throw new Error('desktop welcome: the Web application is unreachable')
   const invoke = async (request: { namespace: string; method: string; args: Record<string, unknown> }): Promise<unknown> => {
     const rpcId = randomUUID()
     const method = `${request.namespace}/${request.method}`

@@ -3,13 +3,11 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
-import type {} from '@deepseek-ai/dsh-credentials'
 // Activates the webServer Context merge used below.
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { API_PATH, SIGN_IN_CODE_PATH } from './api-path.ts'
+import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
-import { BrowserAuth } from './browser-auth.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
 
@@ -49,8 +47,7 @@ export {
 } from './rpc-schema.ts'
 export { HostConnectionService } from './rpc-host.ts'
 
-export { API_PATH, SIGN_IN_CODE_PATH } from './api-path.ts'
-export type { SignInCode } from './api-path.ts'
+export { API_PATH } from './api-path.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'client-connection'
@@ -86,10 +83,7 @@ function assertImageBodyCapacity(ctx: Context, maxRequestBodyBytes: number): voi
   }
 }
 
-/** Services required before providing Connection. */
-export const inject = ['credentials']
-
-/** Browser authentication, request limits, and connection recovery configuration. */
+/** Request limits and connection recovery configuration. */
 export interface ConnectionConfig {
   /** Browser recovery timing, injected into each served page. */
   recovery?: ConnectionRecoveryConfig
@@ -102,18 +96,6 @@ export interface ConnectionConfig {
    * bind. An entry that is not a bare, canonical authority fails plugin load.
    */
   trustedHosts?: string[]
-  /** Absolute browser-session lifetime in days. Default: 30. */
-  cookieMaxAgeDays?: number
-  /**
-   * Whether the browser must exchange the process launch token for a session
-   * cookie before the UI or any RPC runs. Default: true.
-   *
-   * Set false only on a network whose reachable clients are all trusted: the Web
-   * UI drives tool-capable Sessions with this process's own authority, so every
-   * client that reaches the port can run commands as this user. The Host/Origin
-   * fence still applies, so the configured authorities remain the reachable set.
-   */
-  requireBrowserAuth?: boolean
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
   /**
@@ -133,45 +115,27 @@ export const Config: z<ConnectionConfig> = z.object({
   recovery: ConnectionRecoveryConfigSchema.default({}),
   trustedHosts: z.array(String).default([]),
   remoteWrites: z.boolean(),
-  cookieMaxAgeDays: z.natural().min(1).default(30),
-  requireBrowserAuth: z.boolean().default(true),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
 
 /**
  * Provides carrier-neutral RPC and Fetch registries. When `webServer` is
- * present, the plugin also mounts the `/api` browser transport with Host/Origin
- * checks and, unless the config waives it, persistent browser authentication.
+ * present, the plugin also mounts the `/api` browser transport behind the
+ * Host/Origin trust fence.
  * @param ctx - Host plugin context.
  * @param config - resolved plugin config (schema defaults applied).
  */
-export async function apply(ctx: Context, config?: ConnectionConfig): Promise<void> {
+export function apply(ctx: Context, config?: ConnectionConfig): void {
   const recovery = resolveConnectionConfig(config?.recovery)
   // The Loader resolves schema defaults; hand-built test contexts may pass none.
   const trustedHosts = config?.trustedHosts ?? []
-  const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
-  const requireBrowserAuth = config?.requireBrowserAuth ?? true
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   const remoteWrites = config?.remoteWrites ?? trustedHosts.length > 0
   // Config boundary: a malformed entry fails the load loudly here rather than
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
-  const browserAuth = await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, requireBrowserAuth)
-  const connection = new HostConnectionService(ctx, trustedHosts, browserAuth)
-  // A signed-in browser hands a one-time code to one that cannot open the
-  // launch URL (a Home Screen web app keeps its own cookies). The route sits
-  // behind the /api fence, so only an authenticated request can create one.
-  if (requireBrowserAuth) {
-    connection.fetch.register({
-      path: SIGN_IN_CODE_PATH,
-      methods: ['POST'],
-      requestBody: 'buffered',
-      fetch: () => Promise.resolve(Response.json(browserAuth.createSignInCode(), {
-        headers: { 'cache-control': 'no-store' },
-      })),
-    })
-  }
+  const connection = new HostConnectionService(ctx, trustedHosts)
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
     webCtx.on('webserver/index-inject', (table) => {
@@ -186,7 +150,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
         const admission = connection.admit(req)
         if ('rejection' in admission) {
           res.writeHead(admission.rejection)
-          res.end(admission.rejection === 401 ? 'unauthorized' : 'forbidden')
+          res.end('forbidden')
           return
         }
         await webCtx.waterfall('connection/request', req, res, () => bridge(req, res, fetchHandler, maxRequestBodyBytes))

@@ -90,8 +90,8 @@ describe('desktop welcome Web operations', () => {
     await expect(backend.read()).rejects.toThrow('Web RPC failed')
   })
 
-  it('refuses an unauthenticated Web launch', async () => {
-    const send = vi.fn<Parameters<typeof connectDesktopWelcome>[1]>(async () => new Response(null, { status: 401 }))
-    await expect(connectDesktopWelcome(url, send)).rejects.toThrow('Web authentication failed')
+  it('refuses a Web launch that does not answer', async () => {
+    const send = vi.fn<Parameters<typeof connectDesktopWelcome>[1]>(async () => new Response(null, { status: 500 }))
+    await expect(connectDesktopWelcome(url, send)).rejects.toThrow('the Web application is unreachable')
   })
 })

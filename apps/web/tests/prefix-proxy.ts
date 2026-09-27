@@ -1,9 +1,9 @@
 /**
  * Test-only HTTP plumbing for the Web browser scaffold beside it
  * (`./scaffold.ts`). The proxy owns one browser-facing mount: it preserves the
- * external Host, strips the prefix, removes hop-by-hop headers, forwards WebSocket upgrades, and rewrites the
- * backend's `Path=/` cookies to the mount. TLS terminates at the real
- * deployment's proxy; this fixture stays plain HTTP.
+ * external Host, strips the prefix, removes hop-by-hop headers, and forwards
+ * WebSocket upgrades. TLS terminates at the real deployment's proxy; this
+ * fixture stays plain HTTP.
  */
 import {
   createServer as createHttpServer, request as httpRequest,
@@ -56,14 +56,6 @@ export async function startPrefixProxy(options: PrefixProxyOptions): Promise<Pre
     for (const name of HOP_BY_HOP) Reflect.deleteProperty(copy, name)
     return copy
   }
-  const rewriteCookies = (headers: IncomingMessage['headers']): OutgoingHttpHeaders => {
-    const copy = forward(headers)
-    const setCookie = copy['set-cookie']
-    if (setCookie === undefined) return copy
-    const values = Array.isArray(setCookie) ? setCookie : [setCookie]
-    copy['set-cookie'] = values.map(value => value.replace(/(^|;\s*)Path=\/(?=;|$)/iu, `$1Path=${prefix}`))
-    return copy
-  }
   server.on('request', (requestMessage: IncomingMessage, response: ServerResponse) => {
     if (closing !== undefined) { response.destroy(); return }
     const routed = mountPath(requestMessage.url ?? '/')
@@ -81,7 +73,7 @@ export async function startPrefixProxy(options: PrefixProxyOptions): Promise<Pre
       host: '127.0.0.1', port: targetPort, method: requestMessage.method, path: routed,
       headers: forward(requestMessage.headers), agent: false,
     }, (result) => {
-      response.writeHead(result.statusCode as number, rewriteCookies(result.headers))
+      response.writeHead(result.statusCode as number, forward(result.headers))
       result.pipe(response)
     })
     upstream.on('socket', track)

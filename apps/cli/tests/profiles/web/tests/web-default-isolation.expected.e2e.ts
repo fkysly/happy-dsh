@@ -10,10 +10,7 @@ const experimentalName = '@deepseek-ai/dsh-experimental-client-ui-agent-team'
 
 it('boots default Web without experimental modules or an active built-in Browser', async (test) => {
   await withDefaultWeb(test, async ({ url, request }) => {
-    const auth = await webGet(url, test.signal)
-    const cookie = auth.headers['set-cookie']?.[0]?.split(';', 1)[0]
-    expect(cookie).toBeDefined()
-    const page = await webGet(new URL('/', url), test.signal, { cookie: cookie! })
+    const page = await webGet(new URL('/', url), test.signal)
     expect(page.status).toBe(200)
     const html = page.text
     const rawBoot = /globalThis\["__DSH_BOOT__"\] = ([\s\S]*?)<\/script>/u.exec(html)?.[1]

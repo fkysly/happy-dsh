@@ -94,22 +94,22 @@ export interface ServerResponse {
 /** Complete Connection RPC envelope union. */
 export type RpcMessage = ClientRequest | ServerResponse
 
-/** HTTP request facts consumed by browser trust and authentication. */
+/** HTTP request facts consumed by the Host/Origin trust fence. */
 export interface ConnectionTrustRequest {
   /** Request headers supplied by either the Fetch or node:http representation. */
   readonly headers: Headers | Readonly<Record<string, string | readonly string[] | undefined>>
 }
 
 /** HTTP status returned before dispatch, or undefined when the request may proceed. */
-export type ConnectionRequestRejection = 401 | 403 | undefined
+export type ConnectionRequestRejection = 403 | undefined
 
-/** Root/index request facts used by the browser-token exchange. */
+/** Root/index request facts used by the index-serving check. */
 export interface ConnectionIndexRequest extends ConnectionTrustRequest {
   readonly method?: string | undefined
   readonly url?: string | undefined
 }
 
-/** Root/index response operations owned by the browser-token exchange. */
+/** Root/index response operations owned by the index-serving check. */
 export interface ConnectionIndexResponse {
   writeHead(status: number, headers?: Readonly<Record<string, string>>): unknown
   end(body?: string): unknown
@@ -118,7 +118,7 @@ export interface ConnectionIndexResponse {
 /** Outcome of admitting one request: the operator Peer it speaks for, or the status refusing it. */
 export type PeerAdmission =
   | { readonly peer: PeerScope }
-  | { readonly rejection: 401 | 403 }
+  | { readonly rejection: 403 }
 
 /**
  * Handler invoked after Connection has decoded the transport envelope.
@@ -165,7 +165,7 @@ export interface HostConnectionFetch {
 /** Host registry for logical RPC channels carried by the current transport. */
 export interface HostConnectionRpc {
   /**
-   * Register one authenticated absolute channel prefix.
+   * Register one trusted absolute channel prefix.
    * @param channel - absolute logical channel such as `/rpc`.
    * @param handler - decoded endpoint handler returning the existing RPC result shape.
    * @returns asynchronous disposer removing the channel and its physical route.
@@ -201,13 +201,12 @@ export interface HostConnectionHandle {
   /**
    * Compose exact Fetch routes and the shared-channel RPC interceptor.
    * @param channel - shared channel mounted by Connection.
-   * @returns Fetch handler for trusted, authenticated requests.
+   * @returns Fetch handler for trusted requests.
    */
   createSharedFetchHandler(channel: '/api'): ConnectionFetchHandler
 
   /**
-   * Apply Connection's Host/Origin checks to another Web route, then browser
-   * authentication when the deployment requires a session.
+   * Apply Connection's Host/Origin checks to another Web route.
    * @param request - request headers from the HTTP or upgrade request.
    * @returns rejection status, or undefined when the route may accept the request.
    */
@@ -222,21 +221,14 @@ export interface HostConnectionHandle {
   admit(request: ConnectionTrustRequest): PeerAdmission
 
   /**
-   * Authenticate one frontend index request, owning a token redirect or 401; a
-   * deployment that requires no session serves the index directly.
+   * Decide whether a frontend index request may be served, owning a 403 when
+   * it may not. The index carries boot-injected data, so it gets the same
+   * Host/Origin fence as `/api`: a rebound page reads a Host it may not reach.
    * @param request - root or configured-index HTTP request.
    * @param response - response owned when the result is false.
    * @returns true only when the frontend may serve index.html.
    */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean
-
-  /**
-   * Add the fresh process token to an ordinary Web application URL, leaving the
-   * URL clean when the deployment requires no session.
-   * @param baseUrl - clean application URL whose authority and mount are preserved.
-   * @returns tokenized URL for initial login, or `baseUrl` unchanged; a mount proxy strips its prefix before {@link authorizeIndex}.
-   */
-  authenticatedUrl(baseUrl: string): string
 }
 
 /** Transport-independent Fetch handler used by HTTP and worker carriers. */
@@ -249,7 +241,7 @@ export interface ConnectionFetchHandler {
   requestBodyMode(request: { readonly method: string; readonly url: URL }): ConnectionRequestBodyMode
 
   /**
-   * Dispatch one already-authenticated request.
+   * Dispatch one already-admitted request.
    * @param request - Fetch request below the shared channel.
    * @returns the registered response or a 404 response.
    */

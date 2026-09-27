@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-client-connection",
-  "description": "Authenticated RPC transport and generation lifecycle",
+  "description": "Trust-fenced RPC transport and generation lifecycle",
   "version": "0.1.7-rc.1",
   "publishConfig": {
     "access": "public"
@@ -34,7 +34,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-credentials": "workspace:*",
     "@deepseek-ai/schemastery": "workspace:~",
     "zod": "^4.4.3"
   },

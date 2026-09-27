@@ -262,7 +262,12 @@ export interface WebScaffold {
   mode: WebSnapshotMode
   /** Browser-facing origin for the bound test server (the mount root under `publicMount`). */
   baseUrl: string
-  /** Process-token URL that establishes this scaffold's browser session. */
+  /**
+   * The scaffold's plain application URL. The name is kept for the lane's
+   * existing `page.goto(scaffold.authenticatedUrl)` call sites now that no
+   * token or session cookie is involved: the fence-passing GET / serves the
+   * index directly.
+   */
   authenticatedUrl: string
   /** Settled root context (the in-process readiness barrier; headless event subscription is its sanctioned use). */
   ctx: Context
@@ -272,7 +277,7 @@ export interface WebScaffold {
   persistenceRoot: string
   /** Isolated harness home the settings/credentials rows write ($DSH_HOME double). */
   harnessHome: string
-  /** Send a browser-equivalent Host request with this scaffold's authenticated cookie. */
+  /** Send a browser-equivalent Host request against the scaffold's base URL. */
   hostFetch(path: string, init?: RequestInit): Promise<Response>
   /** Await a settled turn end: in-process turn/end, then the agent's idle flip (which follows the persistence flush). */
   whenTurnSettled(timeoutMs?: number): Promise<SessionId>
@@ -412,7 +417,7 @@ export interface LaunchOptions {
   remoteAuthority?: string
   /**
    * Serve the same listener through the private plain-HTTP prefix-stripping
-   * proxy in `./prefix-proxy.ts`, which owns the mount, upgrade, and cookie
+   * proxy in `./prefix-proxy.ts`, which owns the mount and upgrade
    * behavior. The proxy authority joins `trustedHosts` because the direct
    * composition grants no trust. The listen socket is unaffected.
    */
@@ -684,8 +689,6 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   })
   let port = 0
   let baseUrl = ''
-  let authenticatedUrl = ''
-  let cookieHeader = ''
   let publicProxy: PrefixProxy | undefined
   let replayHandle: ReplayHandle | undefined
   try {
@@ -856,24 +859,10 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     if (publicProxy === undefined || publicHost === undefined || publicPrefix === undefined) {
       baseUrl = `http://${browserHost}:${String(port)}`
     } else {
-      // The browser talks to the proxy's mount; Node-side requests emulate the
-      // browser by keeping the proxy's port while connecting to loopback.
+      // The browser talks to the proxy's mount under the trusted public
+      // authority; the proxy forwards to the loopback listener.
       publicProxy.setTarget(port)
       baseUrl = `http://${publicHost}:${String(publicProxy.port)}${publicPrefix}`
-    }
-    authenticatedUrl = ctx.connection.authenticatedUrl(baseUrl)
-    // Chromium resolves *.localhost itself; Node may not, so a mounted scaffold
-    // posts the exchange to loopback, the authority the Host fence always trusts.
-    const loginUrl = new URL(authenticatedUrl)
-    if (publicPrefix !== undefined) loginUrl.hostname = '127.0.0.1'
-    const login = await fetch(loginUrl, { redirect: 'manual' })
-    const setCookie = login.headers.get('set-cookie')
-    if (login.status !== 303 || login.headers.get('location') !== './' || setCookie === null) {
-      throw new Error('web e2e scaffold: browser token exchange did not return its session cookie')
-    }
-    cookieHeader = setCookie.split(';', 1)[0] ?? ''
-    if (cookieHeader.length === 0) {
-      throw new Error('web e2e scaffold: browser token exchange returned an empty session cookie')
     }
   } catch (error) {
     if (process.cwd() !== originalCwd) process.chdir(originalCwd)
@@ -895,14 +884,12 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     harnessHome,
     mode,
     baseUrl,
-    authenticatedUrl,
+    authenticatedUrl: baseUrl,
     ctx,
     workspaceCwd,
     persistenceRoot,
     hostFetch(path: string, init: RequestInit = {}): Promise<Response> {
-      const headers = new Headers(init.headers)
-      headers.set('cookie', cookieHeader)
-      return fetch(new URL(path, baseUrl), { ...init, headers })
+      return fetch(new URL(path, baseUrl), init)
     },
     // Barrier stack: the in-process turn/end identifies the session, its
     // explicit flush makes the transcript durable, and the caller's browser
