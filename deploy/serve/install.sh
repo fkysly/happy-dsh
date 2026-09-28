@@ -21,12 +21,10 @@
 #
 # ── The two things this does that most service units get wrong ──────────────
 # 1. stdout/stderr go to a 0600 file under DSH_HOME, NOT to the journal.
-#    On boot DSH prints `dsh web: http://…?token=<opaque>`. That token mints a
-#    session cookie for any trusted authority, is not single-use, and stays
-#    valid until the process exits — a deployment that patches browser
-#    authentication out (remote-access/overlays/no-browser-auth.yml) prints the
-#    same line without it. Under a supervisor the default is to route
-#    stdout to the journal, where everyone in systemd-journal / adm can read it.
+#    Under a supervisor the default is to route stdout to the journal, where
+#    everyone in systemd-journal / adm can read it. The log carries the process's
+#    own output, including whatever plugins print, so it stays private by
+#    default rather than by review of every line.
 # 2. The log file is created 0600 *before* the supervisor opens it. Both
 #    launchd and systemd create a missing log file with the default umask
 #    (typically 0644), so pre-creating it is what makes (1) actually true.
@@ -422,7 +420,7 @@ ${args_xml}  </array>
        63 decimal is 0o077, so those files are born 0600 instead of 0644.
        This is what makes the log containment real even if the files were not
        pre-created below — and it is why the plist can stay world-readable
-       while the log holding the launch token does not. -->
+       while the service log does not. -->
   <key>Umask</key>
   <integer>63</integer>
 
@@ -513,11 +511,9 @@ StandardInput=null
 # files were not pre-created above.
 UMask=0077
 
-# stdout/stderr to a 0600 file, NOT the journal: the boot line carries the
-# launch token, which mints a session cookie for any trusted authority and is
-# valid until the process exits. Both files are pre-created 0600 above. A
-# deployment that patches browser authentication out prints no token, but the
-# mode is still needed everywhere the token does appear.
+# stdout/stderr to a 0600 file, NOT the journal: a supervised service's output
+# is readable by everyone in systemd-journal / adm when it goes there. Both
+# files are pre-created 0600 above.
 StandardOutput=append:$STDOUT_LOG
 StandardError=append:$STDERR_LOG
 
@@ -627,7 +623,7 @@ fi
 # ── prove the log file is not world-readable ────────────────────────────────
 mode="$(stat -f '%Lp' "$STDOUT_LOG" 2>/dev/null || stat -c '%a' "$STDOUT_LOG" 2>/dev/null || echo '?')"
 if [ "$mode" != "600" ]; then
-  printf '\n  ⚠ %s is mode %s, expected 600 — your launch token may be readable by others.\n' "$STDOUT_LOG" "$mode"
+  printf '\n  ⚠ %s is mode %s, expected 600 — the service log is readable by others.\n' "$STDOUT_LOG" "$mode"
   printf '    Fix: chmod 600 %s\n' "$STDOUT_LOG"
 fi
 
@@ -636,8 +632,7 @@ step "Waiting for the Web UI to come up"
 url=""
 for _ in $(seq 1 40); do
   # Only the bytes written since LOG_OFFSET — see the note where it is set.
-  # `dsh web` prints one such line per start: tokenized by default, and bare
-  # when the deployment patched browser authentication out.
+  # `dsh web` prints one such line per start.
   url="$(tail -c +$((LOG_OFFSET + 1)) "$STDOUT_LOG" 2>/dev/null \
          | grep -Eo '^dsh web: https?://[^[:space:]]+' | tail -1 | sed 's/^dsh web: //' || true)"
   [ -n "$url" ] && break
@@ -645,17 +640,10 @@ for _ in $(seq 1 40); do
 done
 
 if [ -n "$url" ]; then
-  case "$url" in
-    *token=*)
-      printf '\n  Ready. Open this once to mint a session cookie:\n\n'
-      printf '      %s\n\n' "$url"
-      printf '  Treat this URL as a password — it stays valid until the process restarts.\n'
-      printf '  The cookie it mints lasts 30 days and survives restarts.\n' ;;
-    *)
-      printf '\n  Ready. Open this:\n\n'
-      printf '      %s\n\n' "$url"
-      printf '  This deployment runs without browser authentication, so the URL carries no token.\n' ;;
-  esac
+  printf '\n  Ready. Open this:\n\n'
+  printf '      %s\n\n' "$url"
+  printf '  The Host/Origin fence decides which authorities reach it; nothing establishes\n'
+  printf '  identity, so anything that can reach a declared authority is served.\n'
 else
   printf '\n  No URL in %s yet. Check %s.\n\n' "$STDOUT_LOG" "$STDERR_LOG"
 fi

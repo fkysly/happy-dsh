@@ -1,5 +1,5 @@
 ---
-description: "Web Session-log ZIP export: Host streaming, the authenticated download route, the Session Header action, and the /export command."
+description: "Web Session-log ZIP export: Host streaming, the trust-fenced download route, the Session Header action, and the /export command."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-session-log-export` lets the Web interface download a session's full history: a `Download session log` menu item under the Session Header's more-actions button and an `/export` slash command both hand the session tree — the session, its sub-sessions, and attachments — to the browser as a ZIP download. The package owns the Host archive stream, its authenticated Fetch route, and the browser controls and feedback. The browser chooses the download destination. Setup and usage come first; implementation details follow.
+`dsh-session-log-export` lets the Web interface download a session's full history: a `Download session log` menu item under the Session Header's more-actions button and an `/export` slash command both hand the session tree — the session, its sub-sessions, and attachments — to the browser as a ZIP download. The package owns the Host archive stream, its trust-fenced Fetch route, and the browser controls and feedback. The browser chooses the download destination. Setup and usage come first; implementation details follow.
 
 ## Table of Contents
 
@@ -94,7 +94,7 @@ The Host route is a feature-owned exact Fetch contribution. Connection applies i
 
 Read these pages when the package-level contract is not enough. They move from the Web control to the host endpoint and the surrounding command and session surfaces.
 
-- [dsh-client-connection](../../client/connection/README.md) — the authenticated Fetch-route carrier used by the Host endpoint.
+- [dsh-client-connection](../../client/connection/README.md) — the trust-fenced Fetch-route carrier used by the Host endpoint.
 - [Commands subsystem reference](../../../docs/subsystems/commands.md) — the human-command registry the `/export` command registers on.
 - [dsh-client-ui-commands](../../client/ui-commands/README.md) — the browser command surface that renders and acknowledges `/export`.
 - [Session Query package map](../README.md) — the retrieval family this package belongs to.

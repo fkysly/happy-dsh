@@ -6,10 +6,9 @@
  *
  * Security has one home, here. Every route asks the composition's
  * `connection` service for a rejection first (`requestRejection`): its
- * Host/Origin fence defeats DNS rebinding and cross-site calls, and its
- * browser authentication (the login-token cookie), while the deployment
- * requires a session, gates every caller before any resolution result, icon,
- * or launch is reachable. On top of that fence
+ * Host/Origin fence defeats DNS rebinding and cross-site calls, so it gates
+ * every caller before any resolution result, icon, or launch is reachable.
+ * On top of that fence
  * the open route validates its body at the wire: an `application/json` media
  * type, a 64 KiB ceiling, string `app`/`path` fields, a resolved-available
  * catalog id, and an absolute path naming an existing directory.
@@ -78,7 +77,7 @@ export const Config: z<Config> = z.object({
 
 /** Trust surface consumed here; the browser-side connection package owns the full type. */
 interface OpenInAppConnection {
-  requestRejection(request: { readonly headers: IncomingMessage['headers'] }): 401 | 403 | undefined
+  requestRejection(request: { readonly headers: IncomingMessage['headers'] }): 403 | undefined
 }
 
 /** The composition's connection service (typed locally: its package is browser-side). */
@@ -182,7 +181,7 @@ export function apply(ctx: Context, config: Config): void {
     map.set(app.id, fresh)
     return fresh
   }
-  /** Answer an untrusted/unauthenticated request; true when it was rejected. */
+  /** Answer an untrusted request; true when it was rejected. */
   const rejected = (req: IncomingMessage, res: ServerResponse): boolean => {
     const rejection = connectionOf(ctx).requestRejection(req)
     if (rejection === undefined) return false

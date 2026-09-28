@@ -16,7 +16,7 @@ import { writeCrashReport } from '../src/crash-report.ts'
 type InvokeEvent = { sender?: unknown; senderFrame: { url: string } }
 type InvokeHandler = (event: InvokeEvent, ...args: unknown[]) => unknown
 
-vi.mock('../src/web-document.ts', () => ({ authenticateWebHost: async () => 'test-cookie', serveWebDocument: vi.fn(), forwardWebRequest: vi.fn() }))
+vi.mock('../src/web-document.ts', () => ({ serveWebDocument: vi.fn(), forwardWebRequest: vi.fn() }))
 // Report persistence has its own unit tests; here it resolves within microtasks so the fatal
 // dialog never outlives the test that triggered it.
 vi.mock('../src/crash-report.ts', async importOriginal => ({
@@ -834,7 +834,7 @@ describe('desktop main startup', () => {
     const details = { url: 'ws://127.0.0.1:3080/api/remote.mux', webContentsId: 42, requestHeaders: { Origin: 'dsh-app://app' } }
     handler(details, callback)
     expect(callback).toHaveBeenLastCalledWith({ requestHeaders: {
-      origin: 'http://127.0.0.1:3080', cookie: 'test-cookie', 'sec-fetch-site': 'same-origin',
+      origin: 'http://127.0.0.1:3080', 'sec-fetch-site': 'same-origin',
     } })
     handler({ ...details, requestHeaders: { Origin: 'https://other.example' } }, callback)
     expect(callback).toHaveBeenLastCalledWith({ cancel: true })

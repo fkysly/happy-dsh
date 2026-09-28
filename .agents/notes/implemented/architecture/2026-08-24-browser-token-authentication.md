@@ -8,6 +8,8 @@ English | [中文](2026-08-24-browser-token-authentication.zh.md)
 
 The Web Host runs tool-capable Sessions with the current operating-system user's authority, but its HTTP interface identified privileged callers from request routing facts. In particular, the method-specific loopback list treated a loopback `Host` value as local authority even though an HTTP client controls that header. A caller that could reach the server could therefore name `localhost`, enter configuration methods, and use Host-side operations such as model discovery to disclose stored credentials. Binding the shipped CLI to loopback limits ordinary reachability but does not authenticate a request forwarded or otherwise delivered to that socket.
 
+This decision and the configurable requirement it was later extended with are superseded by [Remove browser authentication](2026-09-27-remove-browser-authentication.md), which deletes the launch token, the browser session, and the sign-in codes from this fork.
+
 ## Decision
 
 `dsh-client-connection` authenticates the complete Host API before dispatch. Every API Proxy method, Remote unary call, generic Connection channel, and Remote WebSocket stream requires the same browser session; endpoint ownership and method names do not alter authority. The existing Host/Origin checks run first and retain their DNS-rebinding and cross-site-request role, returning 403 when they fail. A trusted Host without a valid browser session receives 401. The browser-trust rules remain owned by the [carrier-level browser trust decision](2026-07-28-api-browser-trust-boundary.md).

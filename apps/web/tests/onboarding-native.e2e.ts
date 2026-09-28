@@ -11,6 +11,16 @@ import {
 import { openSettings, ZH_BROWSER_LOCALE, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/onboarding-native', import.meta.url))
+
+/** Credential file text, or `undefined` while nothing has written the file. */
+async function readCredentials(path: string): Promise<string | undefined> {
+  try {
+    return await readFile(path, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+}
 const MODE = webSnapshotMode()
 
 describe.skipIf(MODE === 'record').each([false, true])('web e2e: native credential onboarding (desktop marker: %s)', (desktop) => {
@@ -38,7 +48,7 @@ describe.skipIf(MODE === 'record').each([false, true])('web e2e: native credenti
   it('keeps Models settings without another credential dialog or credential write', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-onboarding-native'))
     const credentialPath = join(scaffold.harnessHome, '.credentials.yaml')
-    const credentials = await readFile(credentialPath, 'utf8')
+    const credentials = await readCredentials(credentialPath)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     for (const reload of [false, true]) {
       if (reload) {
@@ -59,7 +69,7 @@ describe.skipIf(MODE === 'record').each([false, true])('web e2e: native credenti
       await settings.getByLabel('API 密钥', { exact: true }).waitFor()
       expect(await page.getByRole('dialog', { name: '添加一个 API Key 开始使用' }).count()).toBe(0)
       expect(await page.getByRole('dialog', { name: '内测声明' }).count()).toBe(0)
-      expect(await readFile(credentialPath, 'utf8')).toBe(credentials)
+      expect(await readCredentials(credentialPath)).toBe(credentials)
       const aria = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
       await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'models.expected.md'), aria, MODE)
       await page.keyboard.press('Escape')

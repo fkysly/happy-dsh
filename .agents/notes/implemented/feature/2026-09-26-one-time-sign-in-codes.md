@@ -8,6 +8,8 @@ English | [中文](2026-09-26-one-time-sign-in-codes.zh.md)
 
 [Browser launch-token authentication](../architecture/2026-08-24-browser-token-authentication.md) signs a browser in only through the `?token=` URL that `dsh web` prints. A web app added to the iPhone Home Screen keeps its cookies separate from Safari, so signing in through Safari does not sign the app in; it has no address bar in which to open the launch URL; and a link from another app opens in the default browser rather than in the web app. An unauthenticated request received a plain-text 401 that told the user to reopen that URL. A deployment reached only from a phone therefore could not use its Home Screen app at all.
 
+This decision is superseded by [Remove browser authentication](../architecture/2026-09-27-remove-browser-authentication.md), which deletes the sign-in codes along with the browser session they minted.
+
 ## Decision
 
 A signed-in browser creates a one-time sign-in code, and the unauthenticated browser enters it on a sign-in page served in place of the 401.

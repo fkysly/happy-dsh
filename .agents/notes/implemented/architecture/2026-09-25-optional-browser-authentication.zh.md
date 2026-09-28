@@ -10,6 +10,8 @@ Status: implemented
 
 促成这项工作的部署，从家里的局域网（自有 DNS）和一条 tailnet 两条路径到达 Web Host，而每一个能到达它的客户端都属于操作者本人。对这样一个可达集合而言，token 兑换并不构成身份认证：网络已经决定了谁可以到达，token 只决定操作者自己的哪一个浏览器可以先说话。
 
+本决策已由[移除浏览器鉴权](2026-09-27-remove-browser-authentication.zh.md)取代：该记录删除了 `requireBrowserAuth` 以及它所豁免的浏览器会话，而不是保留这个字段。
+
 ## Decision
 
 `@deepseek-ai/dsh-client-connection` 新增配置字段 `requireBrowserAuth`，默认 `true`。把它设为 `false` 的部署，会直接提供 UI，并接纳每一个通过 Host/Origin 栅栏的请求：

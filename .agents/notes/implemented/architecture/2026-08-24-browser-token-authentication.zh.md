@@ -8,6 +8,8 @@ Status: implemented
 
 Web Host 以当前操作系统用户的权限运行具有工具能力的 Session，但其 HTTP 接口用请求路由事实识别特权调用者。具体而言，按方法维护的 loopback 列表把 loopback `Host` 值视为本地 authority，尽管 HTTP 客户端可以控制该 header。能够到达服务器的调用者因此可以声明 `localhost`、进入配置方法，再利用模型发现等 Host 侧操作披露存储的凭据。随附 CLI 绑定 loopback 可以限制普通可达性，却不能认证被转发或以其他方式送达该 socket 的请求。
 
+本决策以及它后来被扩展出的可配置要求，已由[移除浏览器鉴权](2026-09-27-remove-browser-authentication.zh.md)取代：该记录把这个 fork 里的启动令牌、浏览器会话与登录码一并删除。
+
 ## 决策
 
 `dsh-client-connection` 在分发前认证完整 Host API。每个 API Proxy 方法、Remote 一元调用、通用 Connection channel 和 Remote WebSocket stream 都要求同一个浏览器会话；endpoint 所有权与方法名称不改变 authority。既有 Host/Origin 校验先执行，继续负责 DNS rebinding 和跨站请求防御，失败时返回 403。Host 可信但没有有效浏览器会话时返回 401。浏览器信任规则仍由[载体级浏览器信任决策](2026-07-28-api-browser-trust-boundary.zh.md)持有。

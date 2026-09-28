@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Run `dsh --profile web` to open an interactive browser GUI with chat, model and settings management, and session history. It uses the same model access, tools, and safety defaults as other dsh surfaces. Startup prints an authenticated URL and normally opens it in the default browser; SSH sessions and `--no-open` leave the URL for manual opening. You can change the port and allow extra hosts, but cannot bind all network interfaces. Choose this package for interactive browser work; use `dsh-headless` for one-shot command-line tasks.
+Run `dsh --profile web` to open an interactive browser GUI with chat, model and settings management, and session history. It uses the same model access, tools, and safety defaults as other dsh surfaces. Startup prints the local URL and normally opens it in the default browser; SSH sessions and `--no-open` leave the URL for manual opening. You can change the port and allow extra hosts, but cannot bind all network interfaces. Choose this package for interactive browser work; use `dsh-headless` for one-shot command-line tasks.
 
 ## Table of Contents
 
@@ -34,7 +34,7 @@ dsh --profile web
 dsh --profile web --no-open --port 8080
 ```
 
-After startup you see a `dsh web:` line whose root URL carries a fresh process token — or no token at all when the deployment sets `requireBrowserAuth: false`. Unless `--no-open` or an SSH session suppresses it, the default browser opens that URL; under the default authentication it receives a signed cookie and redirects to the same directory without the token. You know it worked when the page loads and you can chat with the agent. Two failures to expect: if the frontend is not built, startup stops with a build hint (`pnpm run build` in a checkout); if the browser cannot be opened, a credential-free diagnostic prints to stderr while the server keeps running — open the printed startup URL yourself.
+After startup you see a `dsh web: http://127.0.0.1:<port>` line, with a ` (LAN: http://<address>:<port>)` suffix when the trust sample found a LAN address. Unless `--no-open` or an SSH session suppresses it, the default browser opens that URL. You know it worked when the page loads and you can chat with the agent. Two failures to expect: if the frontend is not built, startup stops with a build hint (`pnpm run build` in a checkout); if the browser cannot be opened, a diagnostic prints to stderr while the server keeps running — open the printed startup URL yourself.
 
 **Settings → Models** displays **DeepSeek**, using `DEEPSEEK_API_KEY`. The default is `deepseek-official` / `deepseek-flash` (DeepSeek-V41-Flash). The [DeepSeek plugin](../../llm/llm-deepseek/README.md#endpoint-and-wire-format) uses the Messages API.
 
@@ -55,7 +55,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 ### LAN access and trusted hosts
 
-By default the GUI accepts connections from this machine only. A deployment that binds all network interfaces also allows browsers from the LAN, and the printed URL then includes a LAN address; `--trusted-host` adds extra hosts in either case. Host and Origin checks control reachability, while the token exchange authenticates every Host API method and WebSocket stream — unless the deployment sets `requireBrowserAuth: false`, which leaves those reachability checks as the only gate. The LAN addresses are sampled once at startup, so a network change later is not picked up — restart the GUI to re-advertise.
+By default the GUI accepts connections from this machine only. A deployment that binds all network interfaces also allows browsers from the LAN, and the printed URL then includes a LAN address; `--trusted-host` adds extra hosts in either case. The Host/Origin fence is the one gate: it decides which authorities may reach the GUI, establishes no identity, and admits every Host API method and WebSocket stream for any client it lets through. The LAN addresses are sampled once at startup, so a network change later is not picked up — restart the GUI to re-advertise.
 
 ### Running over SSH
 
@@ -81,7 +81,7 @@ A patch replaces the targeted row's whole `config`, so each web row restates eve
 
 ### Readiness
 
-The URL line and browser handoff are readiness signals: supervisors RPC as soon as they observe the line, and a browser requests the page as soon as it opens, so both run only after the Loader tree settles, the required-startup audit passes, and Connection authentication is available — or immediately in a hand-built tree without a Loader. Client combo JavaScript and source maps remain unmaterialized at this point. Optional plugin failures do not suppress readiness; a required startup failure or a tree disposed mid-boot announces nothing.
+The URL line and browser handoff are readiness signals: supervisors RPC as soon as they observe the line, and a browser requests the page as soon as it opens, so both run only after the Loader tree settles and the required-startup audit passes — or immediately in a hand-built tree without a Loader. Client combo JavaScript and source maps remain unmaterialized at this point. Optional plugin failures do not suppress readiness; a required startup failure or a tree disposed mid-boot announces nothing.
 
 ### LAN trust sampling
 

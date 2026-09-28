@@ -111,8 +111,9 @@ DSH_HOME="$DSH_HOME_DIR" node "$DSH_BIN" web --no-open --port "$PORT" \
   --trusted-host "$FENCE_NAME" > "$LOG" 2>&1 &
 BOOT_PID=$!
 
-# The token URL is the readiness signal: it is printed once the app is serving,
-# and a boot that dies prints its failure to the same log instead.
+# The `dsh web:` URL line is the readiness signal: it is printed once the app is
+# serving, and a boot that dies prints its failure to the same log instead. The
+# same shape the installer surfaces, so the two agree.
 waited=0
 ready=0
 while [ "$waited" -lt "$BOOT_TIMEOUT_SECONDS" ]; do
@@ -120,7 +121,7 @@ while [ "$waited" -lt "$BOOT_TIMEOUT_SECONDS" ]; do
     printf '\n'; tail -25 "$LOG"
     die "the service exited while starting; the pinned plugins do not boot"
   fi
-  if grep -q 'token=' "$LOG" 2>/dev/null; then ready=1; break; fi
+  if grep -qE '^dsh web: https?://' "$LOG" 2>/dev/null; then ready=1; break; fi
   sleep 1
   waited=$((waited + 1))
 done
@@ -129,11 +130,9 @@ if [ "$ready" != 1 ]; then
   printf '\n'; tail -25 "$LOG"
   die "the service did not report itself ready within ${BOOT_TIMEOUT_SECONDS}s"
 fi
-SERVER_TOKEN="$(grep -Eo 'token=[^ ]+' "$LOG" | tail -1)"
-SERVER_TOKEN="${SERVER_TOKEN#token=}"
 
 code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/" 2>/dev/null || echo 000)"
-if [ "$code" != "401" ] && [ "$code" != "200" ] && [ "$code" != "302" ]; then
+if [ "$code" != "200" ] && [ "$code" != "302" ]; then
   printf '\n'; tail -25 "$LOG"
   die "the service reported ready but answers HTTP $code on 127.0.0.1:$PORT"
 fi
@@ -146,16 +145,22 @@ step "The market's origin fence agrees with the host's"
 # host's declared authorities once at mount, before the connection service it
 # reads them from exists -- so a deployment reached by a name was read-only
 # while loopback worked (dsh-market#729). Both are invisible to a version check.
-JAR="$DSH_HOME_DIR/fence.cookies"
-curl -sS -c "$JAR" -H "Host: $FENCE_NAME" -o /dev/null "http://127.0.0.1:$PORT/?token=$SERVER_TOKEN" || true
-
+# The host issues no browser session, so this probe carries no cookie, exactly
+# as the browser that reaches a deployment without one does.
 fence_post() {
-  curl -sS -b "$JAR" -o "$DSH_HOME_DIR/fence.body" -w '%{http_code}' \
+  curl -sS -o "$DSH_HOME_DIR/fence.body" -w '%{http_code}' \
     -X POST "http://127.0.0.1:$PORT/dsh-market/channel" \
     -H "Host: $1" -H "Origin: https://$1" -H 'Content-Type: application/json' -d '{}'
 }
 
 declared_status="$(fence_post "$FENCE_NAME")"
+# A 401 here is as wrong as a 403: the market now gets no session from the host,
+# so a refusal dressed as a missing session would slip past a 403-only guard and
+# leave the fence unproven. The declared authority must reach the handler.
+if [ "$declared_status" = "401" ]; then
+  printf '\n'; tail -25 "$LOG"
+  die "the market answered 401 for the declared authority $FENCE_NAME; it must reach its handler unauthenticated"
+fi
 if [ "$declared_status" = "403" ] && grep -q 'untrusted origin' "$DSH_HOME_DIR/fence.body"; then
   printf '\n'; tail -25 "$LOG"
   printf '\n  ✗ the market refused a mutation from %s, an authority this deployment declares.\n' "$FENCE_NAME"

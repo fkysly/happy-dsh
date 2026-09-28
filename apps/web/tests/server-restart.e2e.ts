@@ -118,12 +118,9 @@ it.each([false, true])('keeps the same revision, Session and page across a serve
 
   const url = await server.start(0)
   const port = Number(new URL(url).port)
-  const authenticated = await fetch(url, { redirect: 'manual' })
-  const cookie = authenticated.headers.get('set-cookie')?.split(';', 1)[0]
-  if (cookie === undefined) throw new Error('Server did not issue an authentication cookie')
   const rpc = async <T>(endpoint: string, args: object): Promise<T> => {
     const response = await fetch(new URL('/api/' + endpoint, url), {
-      method: 'POST', headers: { 'content-type': 'application/json', cookie },
+      method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'client-request', rpcId: randomUUID(), method: endpoint, payload: { args } }),
     })
     const result = await response.json() as { result: { ok: boolean; value: T; error?: { message: string } } }

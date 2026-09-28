@@ -20,9 +20,6 @@
     "52faf4558fcd91bd27dbdfa7e497843e8eeb75ea5f68ee231335018d5b3f2053": 1,
     "e34ab721c5fc4fe363263a2dab71dad5ba379f3a1e3c3f555234e78f1c70eb02": 1
   },
-  "apps/cli/tests/web-auth.e2e.ts": {
-    "a2b9a35fdf6552ba148d15436c9b3f98ed5763a2b91a95f579b951fd6613e75c": 1
-  },
   "apps/desktop-host/tests/office.spec.ts": {
     "3f8653cd87f99ebd70765379dae51ab308ed9c280e831d39e1abd469bfcdc6e3": 1
   },
@@ -402,20 +399,11 @@
   "packages/bundle/web-app/tests/web-app.spec.ts": {
     "603938cefaa75059bc3902dedc4cd5cbfb2d6d3f6e56bb3cd89788e21ece0389": 1
   },
-  "packages/client/connection/src/browser-auth.ts": {
-    "98acffd14d7c77e3412ce5a7d8e9c555b66de76eb12c14d4b22b251684b60447": 1
-  },
   "packages/client/connection/src/rpc-schema.ts": {
     "21827725b3bf3a544927f354c5443228176a36e5926a26cc8640a59ba3eca717": 1,
     "afa692cdc0fd53b274f5d276d34ea54141b26bee0c5d67055a2fdb056dc398fe": 1,
     "e19d423d382674b8b4611741351c82f91680ea99c1b5423045df49d8be15855c": 1,
     "fdc5fcade0ba1abbc426ccccb07a1ad4998253799b8561815047d95178441cdf": 1
-  },
-  "packages/client/connection/tests/browser-auth.host.spec.ts": {
-    "d7dc9c349af8699fefcaffed26377443dd73ef95f1dc985f4de542ec133869f5": 1
-  },
-  "packages/client/connection/tests/browser-credentials.ts": {
-    "df59c4c68576e18a532f9a917fb70176726a28c8600e8909501e42b990e12857": 1
   },
   "packages/client/connection/tests/http-bridge.host.spec.ts": {
     "0e7046e26d128461a15974d7a6290f49afb4523215d7691910b08aab9dc4c45c": 2,

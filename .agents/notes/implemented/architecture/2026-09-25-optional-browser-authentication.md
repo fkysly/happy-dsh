@@ -10,6 +10,8 @@ Reaching the Web UI from a second device costs a process launch token: 43 charac
 
 The deployment this work exists for reaches the Web Host from a home LAN behind its own DNS and from a tailnet, and every client that can reach it belongs to the operator. For that reachable set, the exchange authenticates nobody: the network already decides who may arrive, and the token only decides which of the operator's own browsers may speak first.
 
+This decision is superseded by [Remove browser authentication](2026-09-27-remove-browser-authentication.md), which deletes `requireBrowserAuth` and the browser session it waived rather than keeping the field.
+
 ## Decision
 
 `@deepseek-ai/dsh-client-connection` gains the config field `requireBrowserAuth`, defaulting to `true`. A deployment that sets it to `false` serves the UI and admits every request that the Host/Origin fence accepts:

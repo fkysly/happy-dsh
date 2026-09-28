@@ -26,6 +26,4 @@
   - switch "Developer tools" [checked]
   - text: Send behavior while busy What Enter and the Send button do while the agent is running; Cmd/Ctrl+Enter uses the other behavior
   - button "Queue"
-  - text: Sign in on another device Create a one-time code to sign in on another device or the Home Screen app.
-  - button "Create sign-in code"
   - text: "Current version: {{version}}"

@@ -57,7 +57,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@deepseek-ai/dsh-client-connection` | yes | Authenticated RPC transport and generation lifecycle |
+| `@deepseek-ai/dsh-client-connection` | yes | Trust-fenced RPC transport and generation lifecycle |
 | `@deepseek-ai/dsh-client-file-upload` | no | Agent-scoped browser file upload, streaming intake, and staged receipt service |
 | `@deepseek-ai/dsh-client-hmr` | yes | Web client graph synchronization and rebuilt-bundle reload transport |
 | `@deepseek-ai/dsh-client-locale` | no | Locale plugin: Host-backed preference, extensible language catalog, browser fallback, and typed built-in dictionaries |

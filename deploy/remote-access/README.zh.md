@@ -2,11 +2,11 @@
 
 [English](README.md) | 中文
 
-怎样从另一台设备 —— 手机、笔记本、VPS —— 访问 DSH 的 Web UI，并且前面挡着认证。
+怎样从另一台设备 —— 手机、笔记本、VPS —— 访问 DSH 的 Web UI，而前面挡着的是一道 Host/Origin 信任栅栏，不是登录。
 
-DSH 已经自带认证层。它**没有**自带的是一个受支持的网络部署形态：CLI 拒绝 `--host 0.0.0.0`，默认绑定是 `127.0.0.1`，也没有 TLS 终结和登出。这个目录用配置、以及在必要处用一个小补丁把这段缺口补上 —— 见[已知缺口以及谁来补上它们](#known-gaps-and-what-closes-them)。
+DSH 已经自带这道栅栏。它**没有**自带的是一个受支持的网络部署形态：CLI 拒绝 `--host 0.0.0.0`，默认绑定是 `127.0.0.1`，也没有 TLS 终结。这个目录用配置、以及在必要处用一个小补丁把这段缺口补上 —— 见[已知缺口以及谁来补上它们](#known-gaps-and-what-closes-them)。
 
-**选配方之前先读[威胁模型](#threat-model)。** 简短版：DSH 用一个 bearer cookie 认证浏览器，而这张 cookie 签发时**不带 `Secure` 属性**，所以明文传输会把它暴露出去。保护它的是 TLS（或者本身已加密的传输，比如 Tailscale）。
+**选配方之前先读[威胁模型](#threat-model)。** 简短版：栅栏决定的是*可达性*，**不建立任何身份**。任何能到达某个已声明 authority 的客户端都会被服务，用的是跑这个进程的账号的全部权限，所以访问控制是 TLS —— 或者 tailnet 的 ACL，或者你自己拥有的网络边界 —— 而不是 DSH。
 
 ---
 
@@ -18,11 +18,11 @@ DSH 已经自带认证层。它**没有**自带的是一个受支持的网络部
 | 入站端口 | 443（用 DNS-01 的话可以不开） | 无 | 无 |
 | 第三方依赖 | 一个域名 + 一个反代 | 无 | Tailscale 账号，每台设备都要装客户端 |
 | 传输 | HTTPS | 明文 | WireGuard（Tailscale） |
-| cookie 是否受保护 | ✅ 由 TLS | ❌ 局域网上可被嗅探 | ✅ 由 WireGuard |
+| 传输是否加密 | ✅ 由 TLS | ❌ 局域网上是明文 | ✅ 由 WireGuard |
 | 需要的核心改动 | 无 | 无 | 无 |
-| 什么时候用 | 你想让它从任何地方都能用，而且用对 | 网络完全可信，你接受 cookie 的风险 | 你已经在跑 Tailscale，而且每台客户端都在上面 |
+| 什么时候用 | 你想让它从任何地方都能用，而且用对 | 网络完全可信，你接受上面的一切都会被服务 | 你已经在跑 Tailscale，而且每台客户端都在上面 |
 
-**推荐 A。** 它是唯一对任意用户都默认安全的配方，如果你要把这个发布给别人，这一点很重要。B 是有意的降级 —— 只在你掌控网络上每一台设备时才用它。如果你生活里本来就有 Tailscale，C 非常好。
+**推荐 A。** 它是唯一对任意用户都让传输受到保护的配方，如果你要把这个发布给别人，这一点很重要。B 是有意的降级 —— 栅栏会接纳任何能到达那个局域网地址的人，所以只在你掌控网络上每一台设备时才用它。如果你生活里本来就有 Tailscale，C 非常好。
 
 ---
 
@@ -34,12 +34,11 @@ DSH 已经自带认证层。它**没有**自带的是一个受支持的网络部
 dsh web --no-open --trusted-host dsh.example.com
 ```
 
-整个机制就是这样。`--trusted-host` 命名你的浏览器将要使用的 authority，它会流到 `/api` 的 Host 栅栏上。`--no-open` 很重要，因为控制台前没有别人能点浏览器窗口。
+整个机制就是这样。`--trusted-host` 命名你的浏览器将要使用的 authority，而它是唯一决定可达性的东西：`/api` 和 index 走的是同一道 Host 栅栏。`--no-open` 很重要，因为控制台前没有别人能点浏览器窗口。
 
 然后起一个反代：
 
-- **Caddy** —— 对公网可达的主机用 [`caddy/Caddyfile`](caddy/Caddyfile)；
-  对一个仍然想拿到公网可信证书的私有主机用 [`caddy/Caddyfile.dns01-cloudflare`](caddy/Caddyfile.dns01-cloudflare)。
+- **Caddy** —— 对公网可达的主机用 [`caddy/Caddyfile`](caddy/Caddyfile)；对一个仍然想拿到公网可信证书的私有主机用 [`caddy/Caddyfile.dns01-cloudflare`](caddy/Caddyfile.dns01-cloudflare)。
 - **nginx** —— [`nginx/dsh.conf`](nginx/dsh.conf)。
 
 如果你更愿意把 authority 列表放进版本控制而不是留在 shell 历史里，用文件形态：[`overlays/behind-proxy.yml`](overlays/behind-proxy.yml)。标志和文件是叠加的 —— 文件保留那个组合表达式并拼接自己的字面量，所以两个都传不会悄悄丢掉任何一个。
@@ -113,7 +112,7 @@ dsh web --patch overlays/lan-all-interfaces.yml --no-open
 
 它会绑定所有网卡，并为每个非内部 IPv4 地址派生一个受信 authority，所以局域网客户端不用再配置什么就能用。
 
-> ⚠️ **明文。** 浏览器会话 cookie 是明文传输的，那个一次性的 `?token=` URL 也是。任何能观察这个网络上流量的人都能重放这张 cookie，并以一个会执行命令的 agent 的全部权限行事。只在你端到端掌控的网络上用它。
+> ⚠️ **明文，而且没有身份。** 这条路上什么都不加密，也没有任何东西在核验来者是谁：只要请求的 `Host` 是派生出来的某个局域网 authority，栅栏就放行，不再多看。任何能到达那个地址的人都能发出这样的请求，而这个进程会以当前用户的身份执行命令。只在你端到端掌控的网络上用它。
 
 两个值得知道的行为：
 
@@ -146,16 +145,14 @@ dsh web --no-open --trusted-host <machine>.<tailnet>.ts.net
 
 把它当清单用，别当配方：每一步都对着你自己的配置验证。
 
-**1. 一条域名规则，因为嗅探器会按名字重新路由。**
-开了 `sniffer.enable: true` 和 `override-destination: true` 之后，443 上的 TLS ClientHello 会被读出 SNI，规则会**按域名再匹配一次**。那条本来把连接正确路由进来的 `IP-CIDR` 规则不再被参考。于是一个没有域名规则的私有名字会落到兜底规则上、被送到最后一个代理节点 —— 而 22 端口上的 SSH 因为没有被嗅探的明文，一直好好的。这种不对称（ssh 通、https 死）就是它的签名。
+**1. 一条域名规则，因为嗅探器会按名字重新路由。** 开了 `sniffer.enable: true` 和 `override-destination: true` 之后，443 上的 TLS ClientHello 会被读出 SNI，规则会**按域名再匹配一次**。那条本来把连接正确路由进来的 `IP-CIDR` 规则不再被参考。于是一个没有域名规则的私有名字会落到兜底规则上、被送到最后一个代理节点 —— 而 22 端口上的 SSH 因为没有被嗅探的明文，一直好好的。这种不对称（ssh 通、https 死）就是它的签名。
 
 ```yaml
 rules:            # or your rules profile's `prepend:`
   - DOMAIN-SUFFIX,dsh.dev,<tailscale-group>   # your tailscale outbound's group
 ```
 
-**2. 一条 hosts 记录，因为 fake-ip 不是一个地址。**
-tailscale 出站必须连到一个真实 IP。在 `enhanced-mode: fake-ip` 下，mihomo 自己的 DNS 会拿 `198.18.x.x` 回答这个名字，而出站拨不通它 —— 所以按域名路由仍然失败，只是更晚。因为浏览器是以 `CONNECT dsh.dev:443` 到达代理的（一个**主机名**，不是 IP），这个解析必须发生在 mihomo 那一侧；客户端上的 hosts 文件帮不上忙。
+**2. 一条 hosts 记录，因为 fake-ip 不是一个地址。** tailscale 出站必须连到一个真实 IP。在 `enhanced-mode: fake-ip` 下，mihomo 自己的 DNS 会拿 `198.18.x.x` 回答这个名字，而出站拨不通它 —— 所以按域名路由仍然失败，只是更晚。因为浏览器是以 `CONNECT dsh.dev:443` 到达代理的（一个**主机名**，不是 IP），这个解析必须发生在 mihomo 那一侧；客户端上的 hosts 文件帮不上忙。
 
 ```yaml
 hosts:
@@ -170,11 +167,11 @@ dns:
 最后从客户端验证，除了系统代理什么都不用：
 
 ```sh
-curl -s -o /dev/null -w '%{http_code}\n' https://dsh.dev/    # expect 401
+curl -s -o /dev/null -w '%{http_code}\n' https://dsh.dev/    # expect 200
 curl -s -o /dev/null -w '%{http_code}\n' http://dsh.dev/     # expect 308 -> https
 ```
 
-这里 401 就是成功：栅栏接受了这个 authority，而没有会话 cookie 被呈上。`000` 意味着连接根本没到。
+这里 200 就是成功：栅栏接受了这个 authority 并把 index 服务出去了，全程没有任何凭证参与。`000` 意味着连接根本没到。
 
 ### 同一套设置在 iOS 上，客户端是 Shadowrocket
 
@@ -193,17 +190,17 @@ use-local-host-item-for-proxy = true
 DOMAIN-SUFFIX,dsh.dev,DIRECT
 ```
 
-- `dsh.dev = <tailnet-ip>` 把这个名字映射到该地址并跳过 DNS。它与 `dsh.dev = server:<tailnet-ip>` **不是**同一条语句，后者是请那个地址去解析这个名字。差别只有一个 token，而 `server:` 那种写法在这里什么也不做。
+- `dsh.dev = <tailnet-ip>` 把这个名字映射到该地址并跳过 DNS。它与 `dsh.dev = server:<tailnet-ip>` **不是**同一条语句，后者是请那个地址去解析这个名字。两者只差一个 `server:` 前缀，而带前缀的那种写法在这里什么也不做。
 - `use-local-host-item-for-proxy = true` 是必需的。少了它，代理类目的地会在远端节点上解析，映射被忽略。
 - `DOMAIN-SUFFIX,…,DIRECT` 同样必需，而且是最容易漏掉的那一半。只有 host 映射时，一个 tailnet 目的地仍然会落到兜底规则上、被交给一个到不了它的代理节点：页面一直加载，而隧道上**一个包都没有**。`DIRECT` 让连接从设备本身发出，那里通往 tailnet 的路由本来就是通的。
 
 然后全局路由要设为配置，并切换客户端的主开关让隧道重建：模块贡献的是规则，而全局的代理与直连模式根本不跑规则，所以在那两种模式下它无法生效。这些齐了之后，在隧道上抓包会看到 ClientHello 到达，且**零 DNS 查询** —— 因为映射是本地的，什么也没有被解析。
 
-还有两步是每台设备各自的事，不属于模块。
+还有一步是每台设备各自的事，不属于模块。
 
 **分两步信任 CA。** iOS 会把 `.crt` 作为描述文件导入（设置 → 通用 → VPN与设备管理），并且**不会**顺手信任它，必须另行开启信任（设置 → 通用 → 关于本机 → 证书信任设置）。只导入不开启，恰好就是让 Safari 报出「不是私密链接」的那个状态，看起来像证书不对。iCloud 云盘只负责分发文件，不负责授予信任。
 
-**不要手输启动 token。** 它有 43 个字符，而一个输错产生的 401，和 authority 不匹配产生的完全一样，都是 `dsh web authentication required`，所以光看响应文本分不出这两种原因。请从已经有会话的设备上分享那条 URL。要区分两者，就抓 loopback 那一段，那里的请求行和状态码是明文：
+**除此之外没有什么是每台设备各自的。** 栅栏不建立任何身份，所以没有秘密需要拷到手机上：能到达那个已声明 authority 的设备，只要信任了 CA 就会被服务。被拒绝就是 `Host` 上的一记 **403**，它自己说得清楚，不会被误会成凭证错误 —— 这里根本没有凭证。如果请求压根没到，就抓 loopback 那一段，那里的请求行和状态行是明文：
 
 ```sh
 sudo tcpdump -i lo0 -n -A 'tcp port 3080'
@@ -219,36 +216,28 @@ sudo tcpdump -i lo0 -n -A 'tcp port 3080'
 
 ## 威胁模型
 
-**DSH 的认证是什么。** 在 `GET /` 上，服务器把每进程的启动 token（`?token=…`）换成一张签名 cookie，绑定在请求的 authority 上 —— 主机名和端口。之后每一个 `/api` 请求 —— 一元调用、WebSocket 升级、通用 channel —— 都必须呈上一个 loopback 或显式受信的 Host，**并且**呈上那张 cookie。失败是 403（栅栏）或 401（没有有效会话）。
+**栅栏是什么。** 每一个请求 —— `/api` 这一面和 `GET /` 上的 index 一样 —— 都必须带一个 loopback 或显式受信的 `Host`，不带 `Sec-Fetch-Site: cross-site` 标记，且 `Origin` 要么缺失、要么恰好等于请求自己的 authority。其余一律以 **403** 拒绝。index 走的是同一道栅栏，因为它带着启动时注入的数据：插件清单与版本、偏好设置、settings-account 配置。
 
-**部署可以放弃会话要求。** 在 `dsh-client-connection` 上设 `requireBrowserAuth: false` —— overlay 就是 [`overlays/no-browser-auth.yml`](overlays/no-browser-auth.yml) —— 会直接提供 UI，并接纳每一个通过栅栏的请求，于是 `dsh web` 打印的 URL 不带 token，也不再有浏览器登录这一步。上面那道栅栏仍然决定可达性，而证书不能替代它：任何能到达某个 authority 的客户端都可以忽略它不信任的证书。只有在你控制着所有能到达受信 authority 的客户端时，才该动用它。
+**栅栏决定可达性，不建立任何身份。** 它是针对 DNS rebinding 和跨站请求的混淆代理防御，不是认证。这里没有会话、没有 cookie、也没有登录：通过栅栏的请求就会被服务，用的是跑这个进程的账号的全部权限。往 `trustedHosts` 里加一个 authority 本身不授予任何权限；它只是让栅栏不再拒绝那个 `Host`，而正是这一点让部署在那个地址上可达。
 
-**它不是什么。** Host/Origin 栅栏是针对 DNS rebinding 的混淆代理防御，不是身份。它决定的是*可达性*，不是*你是谁*。往 `trustedHosts` 里加一个 authority 本身不授予任何权限；它只是让栅栏不再拒绝那个 Host。
+**所以访问控制是传输，不是 DSH。** 在你掌控的地方终结的 TLS、tailnet 的 ACL，或者一个你真的拥有的局域网边界。这就是诚实的后果，而且它是无条件的 —— 不是部署自己选择开启的东西：任何能到达某个已声明 authority 的客户端都会以当前用户的身份执行命令。不信任你证书的客户端可以无视它，所以证书本身决定不了什么。
 
-**cookie 就是 bearer 凭证，而它不带 `Secure` 属性。** DSH 自带的传输假设是 loopback HTTP，所以那个属性被省略了。后果：
-
-- 走 **HTTPS** 时 cookie 在传输中加密。没问题。
-- 走**明文**时，路径上任何人都能读它。那就是配方 B 的全部风险。
-- 如果你同时服务一个 HTTPS authority 和一个明文 authority，两者是**彼此独立的 cookie** —— authority 被烤进了 cookie 名字和签名载荷两处，所以泄漏其中一个不会泄漏另一个。
+**明文在这里是更糟，不是更好。** 配方 B 既不加密也不认身份，所以暴露的是整条通道，而不是通道里的某一个秘密：路径上的任何人都能读到被服务出去的内容，也能发出会被同样接纳的请求。去掉登录让这个面变大，不是变小。
 
 **其它真实性质：**
 
-- `SameSite=Strict` —— 不能被跨站内嵌，也没有跨站请求能触发状态变更。
-- `HttpOnly` —— JavaScript 读不到。
-- 默认 30 天绝对过期。
-- 签名密钥住在宿主的 DSH 凭证库里。**删掉它会让每台设备上的每个会话失效** —— 那就是你的全局吊销。
+- `trustedHosts` 的条目在加载时会被校验。每一条都必须是规范形式的裸 `host` 或 `host:port` authority，不满足的会在启动时大声失败，而不是悄悄放宽或收窄授权。
+- 不带端口的条目匹配该主机名的任意端口；带显式端口的条目只匹配那一个 authority。
+- 没有身份，也就没有登出、没有按客户端的吊销。撤回可达性的方式是把这个 authority 从 `trustedHosts` 里删掉并重启。
 
-**启动那一行是凭证，不只是 URL。** 启动时 DSH 打印
+**启动那一行只是一个 URL。** 启动时 DSH 打印
 
 ```
-dsh web: http://127.0.0.1:3080/?token=<opaque>
+dsh web: http://127.0.0.1:3080/
+dsh web: http://127.0.0.1:3080/ (LAN: http://192.168.1.20:3080)
 ```
 
-那个 token 是为任意受信 authority 铸一张会话 cookie 所需要的全部东西 —— 而且它**不是一次性的**。同一个值会一直有效到进程退出；没有消费、没有过期、也没有按 token 撤销。把这一行当密码对待：
-
-- 不要把它留在任何账号都能读的日志里。`--no-open` 仍然会打印它 —— 你就是靠它知道 URL 的 —— 所以把 stdout 重定向到只有你能读的地方。
-- 配方 B 会打印同一个 token 的**第二份副本**，并附上局域网地址，扩大暴露面。
-- 如果它泄漏了，**重启进程。** 那是唯一的补救。
+机器上存在局域网地址时就会出现第二种形态。两行都不带秘密：决定谁能用那些 URL 的是栅栏，不是 URL 本身。配方 B 通过公布局域网形态扩大了*可达*面，除此之外什么也没扩大。
 
 **这个目录不防的是：**被攻陷的客户端设备、被攻陷的宿主，或者能读宿主凭证库的人。它也不加限流或锁定 —— 需要的话把这些放在反代上。
 
@@ -256,47 +245,59 @@ dsh web: http://127.0.0.1:3080/?token=<opaque>
 
 ## 验证
 
-不要把「服务器起来了」当作证据。走一遍阶梯。后端在 loopback 上时，你可以用 `curl` 把整条认证路径驱动一遍，因为栅栏和 cookie 绑定读的都是你在这里能控制的头：
+不要把「服务器起来了」当作证据。走一遍阶梯 —— [`verify-ladder.sh`](verify-ladder.sh) 会把下面每一步都对着一个在跑的服务跑一遍，第一处不符就以非零退出。后端在 loopback 上时，你可以用 `curl` 把整道栅栏驱动一遍，因为它读的就是你在这里能控制的那几个头：
 
 ```sh
 B=http://127.0.0.1:3080
-TOKEN=<the token from the startup line>
+AUTH=dsh.example.com
 
 # 1. an untrusted Host — the DNS-rebinding fence
 curl -s -o /dev/null -w '%{http_code}\n' -X POST \
-  -H 'Host: evil.example' -H 'Content-Type: application/json' -d '{}' "$B/api/probe"
-#   expect 403
-
-# 2. a trusted Host with no session
-curl -s -o /dev/null -w '%{http_code}\n' -X POST \
-  -H 'Host: dsh.example.com' -H 'Origin: http://dsh.example.com' \
+  -H 'Host: evil.example' -H 'Origin: http://evil.example' \
   -H 'Content-Type: application/json' -d '{}' "$B/api/probe"
-#   expect 401
-
-# 3. exchange the token for a cookie
-curl -s -D- -o /dev/null -H 'Host: dsh.example.com' "$B/?token=$TOKEN"
-#   expect 303 + Set-Cookie: dsh-auth-<hash>=...
-
-# 4. a cookie minted for one authority must not authenticate another
 #   expect 403
 
-# 5. the right authority plus the cookie — the request is admitted
-#   expect anything other than 401/403 (404 means "no such method")
+# 2. a cross-site marker — refused whatever the Host and Origin say
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  -H "Host: $AUTH" -H "Origin: http://$AUTH" -H 'Sec-Fetch-Site: cross-site' \
+  -H 'Content-Type: application/json' -d '{}' "$B/api/probe"
+#   expect 403
+
+# 3. an Origin that is not this authority
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  -H "Host: $AUTH" -H 'Origin: http://evil.example' \
+  -H 'Content-Type: application/json' -d '{}' "$B/api/probe"
+#   expect 403
+
+# 4. the declared authority — admitted with no session of any kind
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  -H "Host: $AUTH" -H "Origin: http://$AUTH" \
+  -H 'Content-Type: application/json' -d '{}' "$B/api/probe"
+#   expect 404: /api/probe is not a real RPC method, and an admitted request is
+#   exactly what answers "no such method". A 401 or 403 here would mean refused.
+
+# 5. the index passes the same fence
+curl -s -o /dev/null -w '%{http_code}\n' -H "Host: $AUTH" "$B/"
+#   expect 200
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: evil.example' "$B/"
+#   expect 403
 ```
 
 WebSocket 承载同一个判定。被拒绝的升级会在 socket 关闭之前回一行原始 HTTP 状态行：
 
 ```sh
-# expect 403 without trust, 401 without a cookie, 101 with both
+# expect 403 with no trust, 101 with the declared authority
 node -e '
-const http=require("node:http"),host=process.argv[1],cookie=process.argv[2];
-const req=http.request({host:"127.0.0.1",port:3080,path:"/api/remote.mux",
+const http=require("node:http");
+const host=process.argv[1];
+const req=http.request({host:"127.0.0.1",port:Number(process.argv[2]||3080),path:"/api/remote.mux",
   headers:{Host:host,Connection:"Upgrade",Upgrade:"websocket",
     "Sec-WebSocket-Version":"13","Sec-WebSocket-Key":"dGhlIHNhbXBsZSBub25jZQ==",
-    Origin:"http://"+host,...(cookie?{Cookie:cookie}:{})}});
+    Origin:"http://"+host}});
 req.on("upgrade",()=>{console.log(101);req.destroy()});
 req.on("response",r=>{console.log(r.statusCode);req.destroy()});
-req.end();' dsh.example.com "$COOKIE"
+req.on("error",e=>{console.log("ERR:"+e.code);});
+req.end();' dsh.example.com 3080
 ```
 
 最后，用真实浏览器经过真实反代走一遍：加载应用、发一条消息、打开设置。**在 curl 里读到 200 不等于 UI 能用。**
@@ -311,17 +312,17 @@ req.end();' dsh.example.com "$COOKIE"
 
 | 缺口 | 影响 | 状态 |
 |---|---|---|
-| **cookie 没有 `Secure`** | 明文传输会泄漏会话 | 计划：`connection.cookieSecure` |
+| **栅栏就是全部策略** | 任何能到达某个已声明 authority 的客户端都会以当前用户的身份执行命令；访问控制是传输 | 设计如此 —— 见[威胁模型](#threat-model) |
 | **`DSH_WEB_URL` 写的是 loopback** | 在反代部署下，模型和每个 shell 工具都被告知 GUI 在 `http://127.0.0.1:<port>` —— 对你的浏览器是假的，对 agent 没用 | 计划：`web-runtime.config.externalUrl` |
 | **不能绑定特定 IP** | listen-host 的 schema 只接受 `127.0.0.1` 和 `0.0.0.0`，所以你没法只绑一张网卡 —— 配方 C 的绑定会需要它 | 计划：放宽 schema |
 | **字面量绑定会让一切 403** | 相关 bug：信任快照只在绑定恰好是 `0.0.0.0` 时才派生 authority，所以绑一个 IP 等于什么都不信任 | 计划：同一个改动 |
 | **配方 B 下 `--host` 是惰性的** | 这个标志静默地什么都不做 | 已在上文记录 |
-| **没有登出** | 吊销一个浏览器意味着删掉宿主的签名密钥，而那会把每台设备都登出 | 计划中 |
+| **没有按客户端的吊销** | 撤回可达性意味着改 `trustedHosts` 再重启；没有身份可供吊销 | 设计如此 |
 | **转发头被忽略** | 改写 `Host` 的反代会 403；修法是反代里的一行，但一个感知转发头的模式没有实现 | 刻意推迟 —— 正确的实现必须以声明过的可信对端为条件，绝不盲目信任 `X-Forwarded-*` |
 
 ### 关于 `--host 0.0.0.0` 的说明
 
-上游刻意拒绝它，并在消息里点明理由：全网卡绑定会把远程代码执行暴露到网络上，而在认证发布之前，它前面什么都没有。现在认证存在了。配方 B 仍然带着明文 cookie 的风险，这就是为什么那条拒绝没有被干脆删掉 —— 摩擦属于最钝的那个选项，而不是每个选项。
+上游刻意拒绝它，并在消息里点明理由：全网卡绑定会把远程代码执行暴露到网络上。栅栏不是这件事的答案，因为它决定可达性、不建立任何身份 —— 在一个全网卡绑定上，它拒绝的只是攻击者可以随意设置的 `Host` 值。配方 B 仍然带着这份暴露，这就是为什么那条拒绝没有被干脆删掉 —— 摩擦属于最钝的那个选项，而不是每个选项。
 
 ---
 
@@ -333,6 +334,6 @@ req.end();' dsh.example.com "$COOKIE"
 | 在局域网上提供服务 | `dsh web --patch overlays/lan-all-interfaces.yml --no-open` |
 | 再加一个 authority | 重复 `--trusted-host`，或者在 overlay 里列出来 |
 | 看组合后的配置 | `dsh --profile web --dump-config` |
-| 诊断什么都 403 | 反代改写了 `Host` |
-| 诊断桌面端登录正常、iOS 却 401 | 43 个字符的 token 被手输了 —— 请改为分享那条 URL（配方 C2） |
+| 诊断什么都 403 | 反代改写了 `Host`，或者这个 authority 没有被声明 |
+| 诊断桌面端正常、iOS 却永远加载不出来 | 模块里的 host 映射或 `DIRECT` 规则缺失 —— 隧道里一个包都没走（配方 C2） |
 | 诊断 GUI 卡在重连 | 反代没有转发 WebSocket 升级 |
