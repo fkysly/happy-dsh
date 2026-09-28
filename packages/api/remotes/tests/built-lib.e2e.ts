@@ -62,7 +62,6 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
       const { Session, SessionId } = await import(urls.session)
 
       const routes = []
-      const credentialRecords = new Map()
       const host = new Context()
       host.provide('webServer', {
         register(route) {
@@ -72,16 +71,7 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
         tapIndex() { return () => {} },
         port: 0,
       })
-      host.provide('credentials', {
-        readRecord(key) { return Promise.resolve(credentialRecords.get(key)) },
-        async modifyRecord(key, mutate) {
-          const current = credentialRecords.get(key)
-          const next = await mutate(current)
-          if (next !== undefined) credentialRecords.set(key, next)
-          return next ?? current
-        },
-      })
-      await host.plugin({ inject: connectionHost.inject, apply: connectionHost.apply })
+      await host.plugin({ apply: connectionHost.apply })
       await host.plugin(TypertRegistry)
       await host.plugin(AgentRegistry)
       await host.plugin(TypertRemoteService)
@@ -136,15 +126,7 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
       const previousFetch = globalThis.fetch
       try {
         globalThis.document = { baseURI: origin + '/' }
-        const login = await fetch(host.connection.authenticatedUrl(origin), { redirect: 'manual' })
-        const setCookie = login.headers.get('set-cookie')
-        if (login.status !== 303 || setCookie === null) throw new Error('browser token exchange failed')
-        const cookie = setCookie.split(';', 1)[0]
-        globalThis.fetch = (input, init = {}) => {
-          const headers = new Headers(init.headers)
-          headers.set('cookie', cookie)
-          return previousFetch(new URL(input, document.baseURI), { ...init, headers })
-        }
+        globalThis.fetch = (input, init = {}) => previousFetch(new URL(input, document.baseURI), init)
 
         const handoffs = new Map()
         globalThis.window = {

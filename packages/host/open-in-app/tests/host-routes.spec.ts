@@ -30,7 +30,7 @@ import type { OpenInAppLauncher } from '../src/resolver.ts'
 let root: string | undefined
 let context: Context | undefined
 /** Answer the connection stub gives every route until a test changes it. */
-const trust: { rejection: 401 | 403 | undefined } = { rejection: undefined }
+const trust: { rejection: 403 | undefined } = { rejection: undefined }
 
 afterEach(async () => {
   await context?.fiber.dispose()
@@ -182,8 +182,6 @@ describe('open-in-app host routes (real Loader composition)', () => {
     expect((await fetch(`${base}/open-in-app/open`, { method: 'POST' })).status).toBe(403)
     // Rejected requests never reached the lazy catalog resolution.
     expect(run).not.toHaveBeenCalled()
-    trust.rejection = 401
-    expect((await fetch(`${base}/open-in-app/apps`)).status).toBe(401)
     trust.rejection = undefined
     expect((await fetch(`${base}/open-in-app/apps`)).status).toBe(200)
   })

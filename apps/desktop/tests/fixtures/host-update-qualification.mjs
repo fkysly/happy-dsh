@@ -22,10 +22,7 @@ const running = await runProfile({ environment: loadLayeredEnv('dsh'), profile: 
   resolvedProfile: { profile: loadProfileDirectory('dsh', project, installAnchor), installAnchor },
   patchFiles: [], args: ['--no-open', '--port', '0'] })
 const host = { updateTasks: installDesktopUpdateTaskControl(running.ctx), dispose: () => running.shutdown.shutdown(0) }
-const applicationUrl = running.ctx.connection.authenticatedUrl(`http://127.0.0.1:${running.ctx.webServer.port}`)
-const exchange = await fetch(applicationUrl, { redirect: 'manual' })
-const cookie = exchange.headers.get('set-cookie')?.split(';', 1)[0]
-assert.ok(cookie)
+const applicationUrl = `http://127.0.0.1:${running.ctx.webServer.port}`
 const apiUrl = new URL('/api/qualification', applicationUrl)
 try {
   const ctx = await ready.promise
@@ -77,14 +74,14 @@ try {
             source: { kind: 'user' } }), 'next-turn', false)
           return new Response('finished')
         } })
-      const pending = fetch(new URL('/api/update-qualification', applicationUrl), { method: 'POST', headers: { cookie } })
+      const pending = fetch(new URL('/api/update-qualification', applicationUrl), { method: 'POST' })
         .then(async response => ({ status: response.status, body: await response.text() }))
       try {
         await entered.promise
         assert.equal(await host.updateTasks('inspect'), false)
         let drained = false
         const locking = host.updateTasks('lock').then(active => { drained = true; return active })
-        assert.equal((await fetch(apiUrl, { headers: { cookie } })).status, 503)
+        assert.equal((await fetch(apiUrl)).status, 503)
         assert.equal(drained, false)
         finish.resolve()
         assert.equal(await locking, createsTask)
@@ -110,11 +107,11 @@ try {
     assert.equal(await host.updateTasks('inspect'), true)
     assert.equal(request.signal.aborted, false)
     assert.equal(await host.updateTasks('lock'), true)
-    assert.equal((await fetch(apiUrl, { headers: { cookie } })).status, 503)
+    assert.equal((await fetch(apiUrl)).status, 503)
     assert.equal(request.signal.aborted, false)
     assert.equal(agent.status, 'running')
     assert.equal(await host.updateTasks('unlock'), true)
-    assert.equal((await fetch(apiUrl, { headers: { cookie } })).status, 404)
+    assert.equal((await fetch(apiUrl)).status, 404)
     agent.cancel({ kind: 'user' })
     await agent.whenIdle()
     assert.equal(request.signal.aborted, true)

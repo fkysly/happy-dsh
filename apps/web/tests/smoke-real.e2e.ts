@@ -312,7 +312,7 @@ describe('dsh web keyless CLI smoke', () => {
     let browser: Browser | undefined
     try {
       const readyUrl = await waitForReadyLine(child)
-      expect(readyUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/u)
+      expect(readyUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/u)
       browser = await chromium.launch({ headless: true })
       const page = await newEnglishPage(browser)
       const pluginScripts: string[] = []
