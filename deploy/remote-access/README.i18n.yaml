@@ -1,6 +1,49 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write deploy/remote-access/README.md
-README.md: 91d66282496e33fcdd27dedfb92c8333e6e82c22
-README.zh.md: 905289a0ba805037456430b74cc458b78025792a
+/remote-access:
+  en: be828bf7a3cdb372
+  zh: c2038a0f70803be7
+/remote-access/pick-a-recipe:
+  en: f9fc201058c9184d
+  zh: 4d368bdb432539fa
+/remote-access/recipe-a-tls-reverse-proxy:
+  en: a142938ee141a035
+  zh: 420298699eb10a9e
+/remote-access/recipe-a-tls-reverse-proxy/host-desktop-affordances:
+  en: 11ad0e596427d7f4
+  zh: 2bea828d1c34f048
+/remote-access/recipe-a-tls-reverse-proxy/writing-overlays-two-traps:
+  en: b8894193668b99df
+  zh: 5ed740f59169cbf8
+/remote-access/recipe-a-tls-reverse-proxy/the-one-thing-that-breaks-this:
+  en: fe536470e136f9c2
+  zh: 95dfd3b5c16e02ee
+/remote-access/recipe-b-bind-the-lan-trust-the-lan:
+  en: 7407da52d8972c1a
+  zh: 0d64ab0972c9959c
+/remote-access/recipe-c-tailscale-serve:
+  en: 3dd1df5cf81eab57
+  zh: f4015c01e962dbaf
+/remote-access/recipe-c2-tailscale-through-a-mihomo-clash-outbound:
+  en: b4420b56a7bc7abf
+  zh: 7071d5efc6ed9dac
+/remote-access/recipe-c2-tailscale-through-a-mihomo-clash-outbound/the-same-settings-on-ios-where-the-client-is-shadowrocket:
+  en: c08ef095331491db
+  zh: 321ab2d639822677
+/remote-access/threat-model:
+  en: a3e914619967651d
+  zh: 5a2d716c4ad0f41d
+/remote-access/verification:
+  en: 5a471b032edc40bb
+  zh: ca90e6d32810bde3
+/remote-access/known-gaps-and-what-closes-them:
+  en: c80206b36959bb58
+  zh: 8fca88866b14684c
+/remote-access/known-gaps-and-what-closes-them/a-note-on-host-0-0-0-0:
+  en: 32f9e34e61d5ae88
+  zh: b57843028216d30a
+/remote-access/quick-reference:
+  en: 48ec852617ea6a9f
+  zh: 6ddd3ef49b178042

@@ -50,24 +50,6 @@ function MainPanel({ usePanelInfo, renderSlot }: Pick<PropsRuntime<'root'>, 'use
 }
 
 /**
- * Marks the frame while the Conversation is selected — the deepened drag band
- * (AppFrame.module.css) keys off the attribute. A DOM write from a child keeps
- * the frame itself out of the panel subscription: selecting a panel must not
- * re-render the columns.
- */
-function ConversationMarker({ usePanelInfo, frameRef }: Pick<PropsRuntime<'root'>, 'usePanelInfo'> & { frameRef: React.RefObject<HTMLDivElement | null> }) {
-  const conversationActive = usePanelInfo(info => info.activePanelId === null)
-  useLayoutEffect(() => {
-    const frame = frameRef.current
-    /* v8 ignore next -- the ref is attached by effect time: the marker renders inside the frame div. */
-    if (frame === null) return
-    if (conversationActive) frame.setAttribute('data-panel-conversation', '')
-    else frame.removeAttribute('data-panel-conversation')
-  }, [conversationActive, frameRef])
-  return null
-}
-
-/**
  * Closes the overlay sidebar when the Session shown in the centre changes: on a
  * frame that renders the sidebar as a drawer, choosing a Session is a navigation
  * and must reveal what the user chose. The subscription is its own so a Session
@@ -336,11 +318,6 @@ export function AppFrame({
       data-dragging={dragging || undefined}
       data-animating={animating > 0 || undefined}
     >
-      {/* First child: app-regions compose in document order, so everything
-          mounted later (chrome controls, overlays) subtracts its no-drag
-          from this band. */}
-      {darwin && <div className={css.leadingBand} data-shell-leading-band />}
-      <ConversationMarker usePanelInfo={usePanelInfo} frameRef={frameRef} />
       <DocumentTitle
         productTitle={productTitle}
         useSessions={useSessions}

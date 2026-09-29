@@ -1,6 +1,49 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write deploy/serve/README.md
-README.md: d0a9dbbd1df98298ee5a6055bf2cdef133598302
-README.zh.md: c44f250d50144e7446ab8ed9bc2b459d7863fe4b
+/running-the-web-ui-as-a-service:
+  en: be73d2cc2ff6fdc4
+  zh: f8c795090315b3c2
+/running-the-web-ui-as-a-service/quick-start:
+  en: fcd3e24aa2067ea0
+  zh: 3a748fb3d1e9f196
+/running-the-web-ui-as-a-service/what-ends-up-in-your-profile:
+  en: 4d59985a2ca29221
+  zh: d51f430ce6e20c2a
+/running-the-web-ui-as-a-service/two-ways-in:
+  en: 5e013063b140476d
+  zh: f3c90faaa942ff4c
+/running-the-web-ui-as-a-service/two-ways-in/why-the-unit-is-generated-rather-than-shipped-as-a-file:
+  en: aa4f3f186c6f1826
+  zh: 54f97c6206c64bd5
+/running-the-web-ui-as-a-service/writing-your-own-dsh-invocation-order-matters:
+  en: 8327483de84216c2
+  zh: 02f5bb98100a035c
+/running-the-web-ui-as-a-service/the-credential-this-is-designed-around:
+  en: 881fec03d54974e8
+  zh: 9724bb05d9df6745
+/running-the-web-ui-as-a-service/the-credential-this-is-designed-around/getting-the-url-back-later:
+  en: 0da0477e889fd491
+  zh: fdb3fb3ce8b86632
+/running-the-web-ui-as-a-service/path-is-baked-in-and-that-matters:
+  en: 7140e0c71690833f
+  zh: 38b73e57cc3c370a
+/running-the-web-ui-as-a-service/day-to-day:
+  en: f8571ca99e4d168e
+  zh: 445fcac1de0247ad
+/running-the-web-ui-as-a-service/day-to-day/restarting-including-from-inside-the-service:
+  en: 3d717280816418dc
+  zh: 365b47136e173bd6
+/running-the-web-ui-as-a-service/day-to-day/stopping-and-staying-stopped:
+  en: c74aed83dc534972
+  zh: 44dbfacbd8d9627e
+/running-the-web-ui-as-a-service/uninstall:
+  en: 9428b0a88d539c2f
+  zh: 13b814acbd172097
+/running-the-web-ui-as-a-service/where-these-choices-come-from:
+  en: b188fea7a804a464
+  zh: 612dea158b9bf9f2
+/running-the-web-ui-as-a-service/known-limits:
+  en: 03d44411a5f38403
+  zh: 4da4d05dad4305b1
