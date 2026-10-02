@@ -1,6 +1,28 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write deploy/release/README.md
-README.md: aeb60513127c39bb16e79b8f5d81928f2ad88de1
-README.zh.md: 5c377b44957bec7d832b864b1058090113c8f185
+/releases-and-version-numbers:
+  en: d7f06aca6b7eee00
+  zh: e2d37f91018d5b18
+/releases-and-version-numbers/what-a-version-means-here:
+  en: f801dad2a520fb13
+  zh: f2b29bfc99806c93
+/releases-and-version-numbers/day-to-day-the-pull-request-lane:
+  en: 8dd41fe62ec46e5a
+  zh: 5fd0deafbb0a7c20
+/releases-and-version-numbers/before-you-cut-refresh-what-a-new-deployment-preinstalls:
+  en: e7770d1084dad316
+  zh: 584d1dd5829eca6b
+/releases-and-version-numbers/cutting-a-release:
+  en: 3e074995a23beb9e
+  zh: ba67bd9cc1e05909
+/releases-and-version-numbers/what-ci-does-when-the-tag-lands:
+  en: f3257bc84f9facaa
+  zh: ee5d723de867c1a3
+/releases-and-version-numbers/what-a-release-is-not:
+  en: 941dde56e4dabced
+  zh: 157bddc55e11be42
+/releases-and-version-numbers/known-limits:
+  en: 26e3028457b0123b
+  zh: a1680331316b7f6e

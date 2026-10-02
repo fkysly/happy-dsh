@@ -186,15 +186,26 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     const blankViewport = page.viewportSize()!
     try {
       await blankColumn.locator('[data-sidebar-right-toggle]').click()
+      await blankColumn.locator('[data-dockkit-pane]').first().waitFor({ state: 'hidden' })
       await page.setViewportSize({ width: 767, height: blankViewport.height })
+      // 767 is below SIDEBAR_AUTO_COLLAPSE, and a narrow frame keeps no rail: the
+      // collapsed column takes no width, so the centre owns the whole frame. The
+      // guarantee this stop proves is unchanged — the right column is closed.
+      await expect.poll(() => columns(page)).toEqual([0, 767, 0])
       await page.locator('[data-sidebar-right-expand]').click()
+      // The fullscreen shell keeps its viewport box while its docked content closes.
+      await expect.poll(() => blankColumn.locator('[data-sidebar-right-open]').count()).toBe(1)
+      await expect.poll(() => blankColumn.locator('[data-dockkit-host="dock"]:not([hidden])').evaluate(element => getComputedStyle(element).transform))
+        .toBe('none')
       await expect.poll(() => blankColumn.locator('[data-sidebar-right-panel]').boundingBox())
         .toEqual({ x: 0, y: 0, width: 767, height: blankViewport.height })
       await blankColumn.getByText('Workspace preview is available.', { exact: true }).waitFor()
       await blankColumn.locator('[data-sidebar-right-toggle]').click()
+      await blankColumn.locator('[data-dockkit-pane]').first().waitFor({ state: 'hidden' })
     } finally {
       await page.setViewportSize(blankViewport)
     }
+    await expect.poll(() => columns(page)).toEqual([280, blankViewport.width - 280, 0])
     await page.locator('[data-sidebar-right-expand]').click()
     await blankColumn.locator('[data-dockkit-add-tab]').click()
     await blankColumn.locator('[data-sidebar-right-guide-entry="terminal"]')

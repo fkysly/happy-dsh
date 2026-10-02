@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-26-narrow-sidebar-overlay-drawer.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-26-narrow-sidebar-overlay-drawer.md
-2026-09-26-narrow-sidebar-overlay-drawer.md: 6f97625f9337d0fdb6f3fe0531aba4b203d0fd24
-2026-09-26-narrow-sidebar-overlay-drawer.zh.md: c62061e8f2ca2bbf40e628e8b9d8aaddaa09ea35
+/agent-note-an-expanded-sidebar-overlays-the-center-on-narrow-frames:
+  en: f31856017bf573b7
+  zh: f64d45f655e75bbc
+/agent-note-an-expanded-sidebar-overlays-the-center-on-narrow-frames/problem:
+  en: 1e5ecbdf55054844
+  zh: 4e5c3e77a217d890
+/agent-note-an-expanded-sidebar-overlays-the-center-on-narrow-frames/decision:
+  en: 974f3f02859f0cd8
+  zh: 859450d8276641f0
+/agent-note-an-expanded-sidebar-overlays-the-center-on-narrow-frames/alternatives-considered:
+  en: 26aaf334b763f8c0
+  zh: df6ec1592f52c3d4
+/agent-note-an-expanded-sidebar-overlays-the-center-on-narrow-frames/consequences:
+  en: 92eee7deb8226ac6
+  zh: 08114e9c8ffc0959

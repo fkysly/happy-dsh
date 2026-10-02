@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-25-optional-browser-authentication.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-25-optional-browser-authentication.md
-2026-09-25-optional-browser-authentication.md: 7301b4bab6226046e8bd45ff2503057c7a02ccdd
-2026-09-25-optional-browser-authentication.zh.md: df3a35996ee355cafe1e52f4cf89c36c98c8f5b8
+/agent-note-optional-browser-authentication:
+  en: 8214d129ccf1d39b
+  zh: c5a216f40d2d1b5f
+/agent-note-optional-browser-authentication/problem:
+  en: c847dd9cf70dd96a
+  zh: cb734954f8cf951a
+/agent-note-optional-browser-authentication/decision:
+  en: ee386a82a3bbf606
+  zh: c827718f75be629c
+/agent-note-optional-browser-authentication/alternatives-considered:
+  en: 4190a0d461565d6f
+  zh: 5470f15a3580b10e
+/agent-note-optional-browser-authentication/consequences:
+  en: cd28284c6f95a7f0
+  zh: 16e390c7196c06c4

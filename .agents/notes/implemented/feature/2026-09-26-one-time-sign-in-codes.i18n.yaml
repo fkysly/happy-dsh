@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-26-one-time-sign-in-codes.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-26-one-time-sign-in-codes.md
-2026-09-26-one-time-sign-in-codes.md: 6401815822a65017c12a07abb2ea933587c16f1a
-2026-09-26-one-time-sign-in-codes.zh.md: ad3e39f40f4526a3f2b50a47c8eed3ff3539726c
+/agent-note-one-time-sign-in-codes-for-browsers-that-cannot-open-the-launch-url:
+  en: e1185bfdd021313c
+  zh: 03078752e61749bf
+/agent-note-one-time-sign-in-codes-for-browsers-that-cannot-open-the-launch-url/problem:
+  en: 6d0b6f49b44ae9e4
+  zh: a1f35d99f1db4ba6
+/agent-note-one-time-sign-in-codes-for-browsers-that-cannot-open-the-launch-url/decision:
+  en: 5d0be805c22ebab3
+  zh: 5f54a3ac0f182549
+/agent-note-one-time-sign-in-codes-for-browsers-that-cannot-open-the-launch-url/alternatives-considered:
+  en: c90cbe1366e2bd6f
+  zh: 64c3879af1aea8cf
+/agent-note-one-time-sign-in-codes-for-browsers-that-cannot-open-the-launch-url/consequences:
+  en: 015b686b6601fe06
+  zh: 31ec8e07678ab8d8
