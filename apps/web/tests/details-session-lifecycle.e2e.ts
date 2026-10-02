@@ -188,7 +188,10 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
       await blankColumn.locator('[data-sidebar-right-toggle]').click()
       await blankColumn.locator('[data-dockkit-pane]').first().waitFor({ state: 'hidden' })
       await page.setViewportSize({ width: 767, height: blankViewport.height })
-      await expect.poll(() => columns(page)).toEqual([56, 711, 0])
+      // 767 is below SIDEBAR_AUTO_COLLAPSE, and a narrow frame keeps no rail: the
+      // collapsed column takes no width, so the centre owns the whole frame. The
+      // guarantee this stop proves is unchanged — the right column is closed.
+      await expect.poll(() => columns(page)).toEqual([0, 767, 0])
       await page.locator('[data-sidebar-right-expand]').click()
       // The fullscreen shell keeps its viewport box while its docked content closes.
       await expect.poll(() => blankColumn.locator('[data-sidebar-right-open]').count()).toBe(1)

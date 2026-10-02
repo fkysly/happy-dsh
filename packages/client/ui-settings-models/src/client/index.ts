@@ -136,7 +136,11 @@ export function apply(ctx: ClientContext): void {
       'settings.models.footer': { kind: 'list', scope: 'root' },
     },
   }, ModelsSection))
-  if (!('dshDesktop' in globalThis)) ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
+  // Ungated, as upstream has it: the seat that declares `settings.models.sign-in`
+  // must exist on Desktop too, or the account package's sign-in occupant never
+  // registers there. The gated sibling it used to sit beside was the welcome
+  // notice, which this fork does not mount at all.
+  ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'deepseek-official',
     children: { 'settings.models.sign-in': { kind: 'single', scope: 'root' } },
