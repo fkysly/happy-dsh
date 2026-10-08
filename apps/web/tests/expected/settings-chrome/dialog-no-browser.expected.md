@@ -20,17 +20,17 @@
   - button "Decrease font size"
   - text: px Work details Choose how much detail to show for tool calls
   - button "Detailed"
-  - text: Performance & usage Choose how much performance and usage information to show
-  - button "Detailed"
-  - text: Coding Tools Shows trajectory, code diffs, and Agent preset switching in new chats
-  - switch "Coding Tools"
+  - text: Show coding view Shows trajectory, code diffs, and all Agent presets
+  - switch "Show coding view"
   - text: Keyboard shortcuts
   - paragraph: View and edit available shortcuts and input actions
   - button "Edit shortcuts"
   - text: Send behavior while busy What Enter and the Send button do while the agent is running; Cmd/Ctrl+Enter uses the other behavior
   - button "Queue"
-  - text: Sign in on another device Create a one-time code to sign in on another device or the Home Screen app.
-  - button "Create sign-in code"
+  - text: Performance & usage Choose how much performance and usage information to show
+  - button "Detailed"
   - text: Upload Session Log when using the official model API Help improve DeepSeek models and products.
   - switch "Upload Session Log when using the official model API"
+  - text: Sign in on another device Create a one-time code to sign in on another device or the Home Screen app.
+  - button "Create sign-in code"
   - text: "Current version: {{version}}"
