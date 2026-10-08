@@ -113,7 +113,21 @@ describe('web e2e: plugin manager', () => {
         const consoleWatch = watchConsole(probe)
         await probe.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
         await probe.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-        await probe.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '插件', exact: true }).click()
+        // A frame below 1024px keeps no rail, so the global panels are reached
+        // through the Session list the Conversation header's control opens.
+        const pluginsEntry = probe.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '插件', exact: true })
+        const sessionList = probe.getByRole('button', { name: '返回会话列表', exact: true })
+        await sessionList.or(pluginsEntry).first().waitFor({ state: 'visible', timeout: 30_000 })
+        if (await sessionList.isVisible()) {
+          await sessionList.click()
+          // The opening column slides the centre; measuring mid-slide offsets the
+          // skeleton from the cards measured after it settles.
+          await pluginsEntry.waitFor()
+          await probe.evaluate(() => Promise.allSettled(document.getAnimations()
+            .filter(animation => animation instanceof CSSTransition)
+            .map(animation => animation.finished)).then(() => undefined))
+        }
+        await pluginsEntry.click()
         await expect.poll(() => spy.mock.calls.length, { timeout: 10_000 }).toBeGreaterThan(0)
         const panel = probe.locator('[data-plugin-panel]')
         const skeleton = panel.locator('[data-plugin-loading]')

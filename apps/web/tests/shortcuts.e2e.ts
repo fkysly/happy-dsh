@@ -240,6 +240,10 @@ describe('web e2e: shortcut reference', () => {
         return event.defaultPrevented
       }), key)).toEqual(Array<boolean>(6).fill(false))
       await page.setViewportSize({ width: 1440, height: 1000 })
+      // The 420px frame showed the header's Session-list control; let the frame
+      // leave its narrow form before openSettings chooses between that control and
+      // the sidebar's own Settings entry.
+      await page.waitForSelector('[data-narrow]', { state: 'detached' })
       await openSettings(page, locale === 'zh-CN' ? 'zh' : 'en')
       const viewButton = page.getByRole('button', { name: view, exact: true })
       const viewHint = `${locale === 'zh-CN' ? '全局唤起查看' : 'Open from anywhere'} ${key === 'Meta' ? '⌘ /' : 'Ctrl + /'}`

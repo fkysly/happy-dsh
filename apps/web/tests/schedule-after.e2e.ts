@@ -1010,6 +1010,15 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await expectNoReminderEntry(page)
+    // A reload on this rail-less frame opens with the Session list closed; the
+    // later cases reach Automation tasks through it, as beforeAll arranged.
+    const openList = page.getByRole('button', { name: 'Back to sessions' })
+    const automation = page.getByRole('button', { name: 'Automation tasks', exact: true })
+    await openList.or(automation).first().waitFor({ timeout: 10_000 })
+    if (await openList.isVisible()) {
+      await openList.click()
+      await page.getByRole('button', { name: 'Collapse sidebar' }).waitFor({ timeout: 10_000 })
+    }
     // This authored pin owns its sidecars through the snapshot manifest's
     // `header.pin: true` contract, which the session-snapshot corpus enforces
     // (`scripts/session-snapshot-corpus.corpus.ts`). The sidecars have no replay

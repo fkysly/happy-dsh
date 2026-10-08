@@ -26,12 +26,14 @@ it('keeps settings and expanded plugin dialogs clear of the Windows caption acro
       await openSettings(page, 'zh')
       const settings = page.getByRole('dialog', { name: '设置', exact: true })
       const settingsMask = settings.locator('..').locator(':scope > [aria-hidden="true"]')
+      // At 520px (the Desktop window's minimum width) Settings is the phone's full-screen page:
+      // it starts where the caption ends and fills the rest of the window.
       for (const fullscreen of [false, true, false]) {
         await page.evaluate(value => document.documentElement.toggleAttribute('data-fullscreen', value), fullscreen)
-        const margin = fullscreen ? 24 : 60
-        await expect.poll(async () => (await settings.boundingBox())?.y).toBe(margin)
-        expect((await settings.boundingBox())?.height).toBe(600 - 2 * margin)
-        expect((await settingsMask.boundingBox())?.y).toBe(fullscreen ? 0 : 40)
+        const captionBottom = fullscreen ? 0 : 40
+        await expect.poll(async () => (await settings.boundingBox())?.y).toBe(captionBottom)
+        expect((await settings.boundingBox())?.height).toBe(600 - captionBottom)
+        expect((await settingsMask.boundingBox())?.y).toBe(captionBottom)
         expect((await settings.locator('..').boundingBox())?.height).toBe(600)
       }
       expect(await page.evaluate(() => document.elementFromPoint(300, 20)?.getAttribute('role'))).toBe('presentation')
@@ -49,6 +51,13 @@ it('keeps settings and expanded plugin dialogs clear of the Windows caption acro
       await settings.getByRole('button', { name: '关闭', exact: true }).click()
       if (await reopenSidebar.isVisible()) await reopenSidebar.click()
       await page.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '插件', exact: true }).click()
+      // A 520px frame shows the expanded sidebar as a full-frame drawer, which choosing a global panel leaves
+      // open (ui-layout's known limitation); the sidebar's own collapse control closes it.
+      const scrim = page.locator('[data-sidebar-scrim]')
+      if (await scrim.isVisible()) {
+        await page.getByRole('button', { name: '收起侧边栏', exact: true }).click()
+        await scrim.waitFor({ state: 'detached' })
+      }
       await page.locator('[data-plugin-panel]').getByRole('button', { name: '添加插件', exact: true }).click()
       const plugin = page.getByRole('dialog', { name: '添加插件', exact: true })
       await plugin.getByRole('button', { name: '插件安装引导和示例', exact: true }).click()
@@ -86,8 +95,11 @@ it('keeps settings and expanded plugin dialogs clear of the Windows caption acro
         }, platform)
         if (await reopenSidebar.isVisible()) await reopenSidebar.click()
         await openSettings(page, 'zh')
-        await expect.poll(async () => (await settings.boundingBox())?.y).toBe(platform === 'darwin' ? 68 : 24)
+        await expect.poll(async () => (await settings.boundingBox())?.y).toBe(0)
         expect((await settingsMask.boundingBox())?.y).toBe(0)
+        // The macOS window strip (48px, traffic lights) stays clear of the page's title.
+        const title = settings.locator(`[id="${await settings.getAttribute('aria-labelledby')}"]`)
+        expect((await title.boundingBox())!.y).toBeGreaterThanOrEqual(platform === 'darwin' ? 48 : 0)
         await page.keyboard.press('Escape')
         await settings.waitFor({ state: 'hidden' })
       }
