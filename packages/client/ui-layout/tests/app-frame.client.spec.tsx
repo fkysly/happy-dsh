@@ -233,12 +233,30 @@ describe('AppFrame', () => {
       expect(tracks(frame)[0]).toBe(0)
       expect(sidebarOwner()).toMatchObject({ collapsed: true, width: 0 })
       expect(getByTestId('sidebar-content')).toBeTruthy()
+      // The caption controls must stay usable, so this column is never hidden.
+      expect(getByTestId('sidebar-content').parentElement?.hasAttribute('data-sidebar-hidden')).toBe(false)
       // The caption row keeps the reopen controls; the darwin-only
       // shell.leading seat must not mount a duplicate set.
       expect(queryByTestId('shell.leading-content')).toBeNull()
     } finally {
       document.documentElement.removeAttribute('data-windows-titlebar')
     }
+  })
+
+  it('keeps a narrow frame\'s zero-width column mounted but hidden', () => {
+    const { frame, getByTestId } = mountFrame()
+    const column = () => getByTestId('sidebar-content').parentElement
+    expect(column()?.hasAttribute('data-sidebar-hidden')).toBe(false)
+    resize(455)
+    // No rail: the column takes no width, and its clipped controls must be
+    // neither focusable nor announced. It stays mounted, because the occupant
+    // also owns surfaces portalled out of it (Settings) that a narrowing window
+    // must not take down.
+    expect(tracks(frame)[0]).toBe(0)
+    expect(getByTestId('sidebar-content')).toBeTruthy()
+    expect(column()?.hasAttribute('data-sidebar-hidden')).toBe(true)
+    resize(1920)
+    expect(column()?.hasAttribute('data-sidebar-hidden')).toBe(false)
   })
 
   it('keeps the closed sidebar mounted at its 56px rail without a handle', () => {
@@ -256,9 +274,9 @@ describe('AppFrame', () => {
   it('mounts the shell.leading seat only while the darwin collapse hides the column', () => {
     document.documentElement.dataset.platform = 'darwin'
     const { frame, instance, sidebarOwner, queryByTestId } = mountFrame()
-    // The window drag band composes app-regions in DOM order: it must render
-    // before all column content so every later no-drag subtracts from it.
-    expect(frame.firstElementChild?.hasAttribute('data-shell-leading-band')).toBe(true)
+    // The frame declares no window drag of its own: every chrome row owns its
+    // run (ui-sidebar, ui-dockkit, ui-conversation, ui-plugin-manager).
+    expect(frame.querySelector('[data-shell-leading-band]')).toBeNull()
     expect(queryByTestId('shell.leading-content')).toBeNull()
     act(() => { instance.actions.toggleSidebar() })
     expect(tracks(frame)).toEqual([0, 0])
@@ -280,8 +298,6 @@ describe('AppFrame', () => {
       expect(slotCalls).toEqual([{ key: 'main', props: {}, options: { entryKey: panelId ?? 'conversation' } }])
       expect(getByTestId('main-content').getAttribute('data-entry-key')).toBe(panelId ?? 'conversation')
       expect(instance.getSnapshot().panelInfo).toEqual({ activePanelId: panelId })
-      // The deepened conversation drag band keys off this frame marker.
-      expect(frame.hasAttribute('data-panel-conversation')).toBe(panelId === null)
       expect(instance.getSnapshot().layoutInfo).toBe(layoutInfo)
       expect(tracks(frame)).toEqual([280, 0])
       expect(selectedSession).toBe(sessionId)

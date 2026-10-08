@@ -50,24 +50,6 @@ function MainPanel({ usePanelInfo, renderSlot }: Pick<PropsRuntime<'root'>, 'use
 }
 
 /**
- * Marks the frame while the Conversation is selected — the deepened drag band
- * (AppFrame.module.css) keys off the attribute. A DOM write from a child keeps
- * the frame itself out of the panel subscription: selecting a panel must not
- * re-render the columns.
- */
-function ConversationMarker({ usePanelInfo, frameRef }: Pick<PropsRuntime<'root'>, 'usePanelInfo'> & { frameRef: React.RefObject<HTMLDivElement | null> }) {
-  const conversationActive = usePanelInfo(info => info.activePanelId === null)
-  useLayoutEffect(() => {
-    const frame = frameRef.current
-    /* v8 ignore next -- the ref is attached by effect time: the marker renders inside the frame div. */
-    if (frame === null) return
-    if (conversationActive) frame.setAttribute('data-panel-conversation', '')
-    else frame.removeAttribute('data-panel-conversation')
-  }, [conversationActive, frameRef])
-  return null
-}
-
-/**
  * Closes the overlay sidebar when the Session shown in the centre changes: on a
  * frame that renders the sidebar as a drawer, choosing a Session is a navigation
  * and must reveal what the user chose. The subscription is its own so a Session
@@ -292,12 +274,13 @@ export function AppFrame({
   // whole and was corrected two frames later — visible jitter. cols keeps only
   // the discrete decisions (track present, collapse state) and the drag base.
   const rightbarMax = cols.rightbar === 0 ? 0 : clampWidth(rightbarPreference, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO)
-  // The occupant renders when the sidebar is open (a column or the drawer), or
-  // when a collapsed rail has width to draw into. A zero-width column would
-  // otherwise keep the rail's controls in the document — unreachable by pointer
-  // because the column clips them, but still focusable and announced. Windows
-  // is the exception: the window's caption controls are mounted inside this
-  // occupant, so they stay present even in the zero-width column.
+  // A zero-width column clips the rail's controls away from any pointer, but
+  // they would still be focusable and announced, so the column is hidden
+  // (AppFrame.module.css). It stays mounted rather than unrendered: the occupant
+  // also owns surfaces that outlive the column's width — Settings is portalled
+  // out of it, and would vanish the moment a window narrowed past the
+  // breakpoint. Windows is the exception: its caption controls live in this
+  // occupant and must stay usable.
   const sidebarVisible = !sidebarCollapsed || collapsedWidth > 0
     || document.documentElement.hasAttribute('data-windows-titlebar')
   const sidebar = useMemo(() => renderSlot('sidebar', {
@@ -336,11 +319,6 @@ export function AppFrame({
       data-dragging={dragging || undefined}
       data-animating={animating > 0 || undefined}
     >
-      {/* First child: app-regions compose in document order, so everything
-          mounted later (chrome controls, overlays) subtracts its no-drag
-          from this band. */}
-      {darwin && <div className={css.leadingBand} data-shell-leading-band />}
-      <ConversationMarker usePanelInfo={usePanelInfo} frameRef={frameRef} />
       <DocumentTitle
         productTitle={productTitle}
         useSessions={useSessions}
@@ -348,8 +326,8 @@ export function AppFrame({
       />
       <DrawerNavigationClose useSessions={useSessions} onNavigate={actions.collapseOverlaySidebar} />
       {drawer && <div className={css.scrim} data-sidebar-scrim aria-hidden="true" onClick={actions.collapseOverlaySidebar} />}
-      <div className={css.sidebarCol}>
-        {sidebarVisible ? sidebar : null}
+      <div className={css.sidebarCol} data-sidebar-hidden={sidebarVisible ? undefined : ''}>
+        {sidebar}
       </div>
       <>
         <CenterColumn>{main}</CenterColumn>

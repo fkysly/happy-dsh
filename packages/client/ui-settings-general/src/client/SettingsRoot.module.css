@@ -76,7 +76,7 @@
   padding: 0 10px 0 8px;
   box-sizing: border-box;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
   background: transparent;
   cursor: pointer;
   overflow: hidden;
@@ -142,7 +142,7 @@
 
 .mask {
   position: absolute;
-  inset: 0;
+  inset: var(--dsh-frame-chrome-top, 0px) 0 0;
   background: var(--dsw-alias-bg-mask-1);
   backdrop-filter: var(--dsw-mask-blur);
 }
@@ -160,9 +160,9 @@
   z-index: 1;
   display: flex;
   width: 800px;
-  height: min(800px, calc(100vh - 2 * max(24px, var(--dsh-frame-top-clearance, 24px))));
+  height: min(800px, calc(100vh - 2 * max(24px, var(--dsh-frame-overlay-top, 24px))));
   max-width: calc(100vw - 48px);
-  border-radius: 32px;
+  border-radius: var(--dsw-radius-panel);
   overflow: hidden;
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: var(--dsw-elevation-prominent);
@@ -173,6 +173,10 @@
      styles/scrollbar.css for the rebinding contract). */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.panel:focus {
+  outline: none;
 }
 
 /* Nav rail (figma .Setting-nav 501:29958): 188 wide, pad (12,22,12,0),
@@ -214,7 +218,7 @@
   padding: 9px 16px 9px 12px;
   box-sizing: border-box;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
   background: transparent;
   cursor: pointer;
   font-family: inherit;
@@ -321,18 +325,27 @@
    panel). Settings becomes a full-screen page instead: section tabs in one
    horizontally scrolling row under the title, the options below at full
    width, and the close and document actions pinned to the top-right corner.
-   The page keeps clear of the notch and home indicator. */
+   The page keeps clear of the notch and home indicator, and of the window
+   chrome a Desktop window this narrow still draws: it starts below the Windows
+   caption (`--dsh-frame-chrome-top`, where the mask also starts), and on macOS
+   its content starts below the window strip that carries the traffic lights. */
 @media (max-width: 640px) {
   .panel {
+    --settings-page-inset-top: env(safe-area-inset-top);
     flex-direction: column;
     width: 100%;
     max-width: none;
-    height: 100%;
-    height: 100dvh;
+    height: calc(100% - var(--dsh-frame-chrome-top, 0px));
+    height: calc(100dvh - var(--dsh-frame-chrome-top, 0px));
+    margin-top: var(--dsh-frame-chrome-top, 0px);
     border-radius: 0;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    padding: var(--settings-page-inset-top) env(safe-area-inset-right)
       env(safe-area-inset-bottom) env(safe-area-inset-left);
     box-sizing: border-box;
+  }
+
+  :global(html[data-platform='darwin']:not([data-fullscreen])) .panel {
+    --settings-page-inset-top: max(env(safe-area-inset-top), var(--dsh-frame-top-clearance, 0px));
   }
 
   .nav {
@@ -370,7 +383,7 @@
 
   .header {
     position: absolute;
-    top: calc(env(safe-area-inset-top) + 12px);
+    top: calc(var(--settings-page-inset-top) + 12px);
     right: calc(env(safe-area-inset-right) + 12px);
     height: auto;
     padding: 0;
