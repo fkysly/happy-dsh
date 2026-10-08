@@ -42,6 +42,11 @@ export interface ILayout {
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void
   /**
+   * Close the sidebar when it is the drawer overlaying the centre; a sidebar
+   * that is its own column stays open.
+   */
+  collapseOverlaySidebar(): void
+  /**
    * Report the right panel's presentation without changing its expanded state.
    * @param track - whether the normal panel width reserves a grid track,
    *   including beneath a fullscreen overlay.
@@ -92,6 +97,11 @@ export class LayoutController implements ILayout {
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void {
     this.panels.toggleSidebar()
+  }
+
+  /** Close the sidebar drawer that overlays the centre; a docked column stays. */
+  collapseOverlaySidebar(): void {
+    this.panels.collapseOverlaySidebar()
   }
 
   /** Report the right panel's track and fullscreen presentation. */

@@ -140,8 +140,12 @@ export function apply(ctx: Context): void {
     subscribe: listener => ctx.on('connection/reset', listener),
   }
   const pickerFlowSource = flowSource('conversation.hero.workspace.directoryFlow')
+  // A row chosen from the drawer is a navigation even when it names the Session
+  // already shown: that leaves the shown Session unchanged, so the frame's
+  // change-driven close never fires and the drawer would stay over it.
   const openSession: WorkspaceBrowserInjected['open'] = (sessionId) => {
     uiWorkspace.openSession(sessionId)
+    ctx.layout.collapseOverlaySidebar()
   }
   // Registry-global sets as Sets, rebuilt only when the Workspace snapshot changes.
   const pinnedSet = derive(workspaces.list, snapshot => new Set<SessionId>(snapshot.pinnedSessionIds))
