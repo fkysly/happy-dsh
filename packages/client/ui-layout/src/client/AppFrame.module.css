@@ -50,6 +50,17 @@
   border-right: none;
 }
 
+/* A zero-width collapsed column (a narrow frame keeps no rail) still holds its
+   occupant mounted; hiding it keeps the clipped controls out of focus order and
+   the accessibility tree. Surfaces the occupant portals out stay visible. The
+   rule covers every descendant and wins over theirs: rows that animate their own
+   `visibility` (the workspace header's actions) would otherwise re-show a
+   control inside a column that has no width. */
+.sidebarCol[data-sidebar-hidden],
+.sidebarCol[data-sidebar-hidden] * {
+  visibility: hidden !important;
+}
+
 :global([data-windows-titlebar]) .handle {
   top: var(--dsh-windows-titlebar-height);
 }

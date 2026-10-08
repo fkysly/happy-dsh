@@ -274,12 +274,13 @@ export function AppFrame({
   // whole and was corrected two frames later — visible jitter. cols keeps only
   // the discrete decisions (track present, collapse state) and the drag base.
   const rightbarMax = cols.rightbar === 0 ? 0 : clampWidth(rightbarPreference, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO)
-  // The occupant renders when the sidebar is open (a column or the drawer), or
-  // when a collapsed rail has width to draw into. A zero-width column would
-  // otherwise keep the rail's controls in the document — unreachable by pointer
-  // because the column clips them, but still focusable and announced. Windows
-  // is the exception: the window's caption controls are mounted inside this
-  // occupant, so they stay present even in the zero-width column.
+  // A zero-width column clips the rail's controls away from any pointer, but
+  // they would still be focusable and announced, so the column is hidden
+  // (AppFrame.module.css). It stays mounted rather than unrendered: the occupant
+  // also owns surfaces that outlive the column's width — Settings is portalled
+  // out of it, and would vanish the moment a window narrowed past the
+  // breakpoint. Windows is the exception: its caption controls live in this
+  // occupant and must stay usable.
   const sidebarVisible = !sidebarCollapsed || collapsedWidth > 0
     || document.documentElement.hasAttribute('data-windows-titlebar')
   const sidebar = useMemo(() => renderSlot('sidebar', {
@@ -325,8 +326,8 @@ export function AppFrame({
       />
       <DrawerNavigationClose useSessions={useSessions} onNavigate={actions.collapseOverlaySidebar} />
       {drawer && <div className={css.scrim} data-sidebar-scrim aria-hidden="true" onClick={actions.collapseOverlaySidebar} />}
-      <div className={css.sidebarCol}>
-        {sidebarVisible ? sidebar : null}
+      <div className={css.sidebarCol} data-sidebar-hidden={sidebarVisible ? undefined : ''}>
+        {sidebar}
       </div>
       <>
         <CenterColumn>{main}</CenterColumn>

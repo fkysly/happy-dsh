@@ -93,7 +93,14 @@ it('keeps settings and expanded plugin dialogs clear of the Windows caption acro
           if (value === 'darwin') document.documentElement.setAttribute('data-platform', value)
           else document.documentElement.removeAttribute('data-platform')
         }, platform)
-        if (await reopenSidebar.isVisible()) await reopenSidebar.click()
+        // The frame re-renders for the new platform after these attribute edits,
+        // so name the control that platform offers rather than whichever one was
+        // visible a moment before: on macOS a narrow frame's sidebar opens from
+        // the window-chrome seat; a plain browser reaches Settings through the
+        // Session list, which openSettings opens itself.
+        if (platform === 'darwin') {
+          await page.locator('[data-shell-leading]').getByRole('button', { name: '打开侧边栏', exact: true }).click()
+        }
         await openSettings(page, 'zh')
         await expect.poll(async () => (await settings.boundingBox())?.y).toBe(0)
         expect((await settingsMask.boundingBox())?.y).toBe(0)
