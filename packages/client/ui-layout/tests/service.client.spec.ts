@@ -45,6 +45,17 @@ describe('LayoutController', () => {
     expect(panels.setSidebar).not.toHaveBeenCalled()
   })
 
+  it('closes only the overlaying drawer, leaving the sidebar preference alone', () => {
+    const panels = fakePanels()
+    const service = new LayoutController(panels, () => true, createSnapshotStore({ activePanelId: null }))
+
+    service.collapseOverlaySidebar()
+
+    expect(panels.collapseOverlaySidebar).toHaveBeenCalledTimes(1)
+    expect(panels.toggleSidebar).not.toHaveBeenCalled()
+    expect(panels.setSidebar).not.toHaveBeenCalled()
+  })
+
   it('forwards panel selection and returning to the Conversation without changing geometry', () => {
     const panels = fakePanels()
     const service = new LayoutController(panels, () => true, createSnapshotStore({ activePanelId: null }))
