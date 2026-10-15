@@ -49,6 +49,8 @@ When an Assistant attempt retires without a visible message, Chat hides its alre
 
 Generic command rows retain the ordinary command glyph in every lifecycle state; failure remains explicit through the row state and summary. A terminal Turn failure remains a separate red-dot notice; intermediate model retries do not create that notice, and an output-token limit uses the amber warning dot.
 
+A turn the service stopped by restarting keeps the same amber notice shape: it says the last turn was interrupted and offers the continuation the model expects, which sends that text to the Session without touching the composer's draft.
+
 -----
 
 <a id="turn-token-usage"></a>
